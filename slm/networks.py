@@ -42,6 +42,8 @@ class Transformer(nn.Module):
             context_window_size, embedding_dim
         )
 
+        self.layer_norm = nn.LayerNorm(embedding_dim)
+
         self.layers = nn.ModuleList()
         self.layers.append(nn.Linear(embedding_dim, mlp_dim))
         for _ in range(mlp_layers):
@@ -51,7 +53,8 @@ class Transformer(nn.Module):
     def forward(self, x):
         embedding = self.embedding(x) + self.pos_enc[: x.size(1)]
         # layer normalization
-        embedding = torch.nn.functional.layer_norm(embedding, embedding.size()[1:])
+        embedding = self.layer_norm(embedding)
+    
         query = self.query(embedding)
         key = self.key(embedding)
         value = self.value(embedding)
@@ -67,13 +70,21 @@ class Transformer(nn.Module):
             attention_scores, dim=-1
         )
         x = torch.matmul(attention_weights, value) + embedding
+        x = self.layer_norm(x)  # Apply layer normalization
         x = torch.nn.functional.relu(x)  # Apply activation function
 
-        
-        x = self.layers[0](x)  # First layer
+        # First layer (no residual for input)
+        x = self.layers[0](x)
 
-        for i in range(1, len(self.layers)):
+        # Residual connections for intermediate layers
+        for i in range(1, len(self.layers) - 1):
+            residual = x
             x = torch.nn.functional.relu(x)
             x = self.layers[i](x)
+            x = x + residual  # Add residual connection
+
+        # Final layer (output projection, no residual)
+        x = torch.nn.functional.relu(x)
+        x = self.layers[-1](x)
 
         return x

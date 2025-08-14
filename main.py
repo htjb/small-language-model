@@ -12,7 +12,7 @@ vector = bow.codify(line)  # Convert the line into a bag-of-words vector
 #out = embed(vector)  # Pass the bag-of-words vector through the embedding layer
 
 transform = Transformer(vocab_size=len(bow.word_to_index), 
-                embedding_dim=128, mlp_layers=2, mlp_dim=200,
+                embedding_dim=64, mlp_layers=2, mlp_dim=128,
                 context_window_size=100)  # Create an instance of the Transformer class
 
 with open('alice-in-wonderland.txt', 'r') as file:
@@ -31,7 +31,7 @@ test_text, val_text = test_text[:-val_size], test_text[-val_size:]
 
 # Define loss function and optimizer
 criterion = torch.nn.CrossEntropyLoss()
-optimizer = optim.AdamW(transform.parameters(), lr=1e-4, weight_decay=1e-5)  # Use AdamW optimizer
+optimizer = optim.AdamW(transform.parameters(), lr=1e-4)  # Use AdamW optimizer
 
 best_loss = float('inf')  # Initialize best loss
 patience_counter = 0  # Initialize patience counter

@@ -12,18 +12,19 @@ vector = bow.codify(line)  # Convert the line into a bag-of-words vector
 #out = embed(vector)  # Pass the bag-of-words vector through the embedding layer
 
 transform = Transformer(vocab_size=len(bow.word_to_index), 
-                embedding_dim=64, mlp_layers=2, mlp_dim=128,
+                embedding_dim=64, mlp_layers=1, mlp_dim=256,
                 context_window_size=100)  # Create an instance of the Transformer class
 
 with open('alice-in-wonderland.txt', 'r') as file:
     text = file.readlines()  # Read the text file line by line 
 
+# i think this should be a continous list and the nwe split into batches and shuffle...
 codified_text = [bow.codify(t) for t in text if t.strip()]  # Codify each line of the text
 
 indices = np.arange(0, len(codified_text))
 shuffled_indices = np.random.permutation(indices)  # Shuffle the indices
 shuffled_codified_text = [codified_text[i] for i in shuffled_indices]  # Shuffle
-test_size = int(0.5 * len(codified_text))  # Define the test size
+test_size = int(0.3 * len(codified_text))  # Define the test size
 train_text = shuffled_codified_text[:-test_size]  # Split into training text
 test_text = shuffled_codified_text[-test_size:]  # Split into test text
 val_size = int(0.5 * len(test_text))  # Define the validation size
@@ -89,7 +90,7 @@ with torch.no_grad():
     test_loss /= count if count > 0 else 0
     print(f"Test Loss: {test_loss}")  # Print the test loss
 
-output = transform(torch.tensor(bow.codify("how are ")).unsqueeze(0))
+output = transform(torch.tensor(bow.codify("how are you")).unsqueeze(0))
 print("Output shape:", output.shape)  # Print the shape of the output
 output = np.argmax(output[0, -1, :].detach().numpy())
 index_to_word = {i: w for w, i in bow.word_to_index.items()}

@@ -46,27 +46,30 @@ class Transformer(nn.Module):
         self.layers.append(nn.Linear(embedding_dim, vocab_size))
 
     def forward(self, x):
-        x = self.embedding(x) + self.pos_enc[: x.size(0)]
-        query = self.query(x)
-        key = self.key(x)
-        value = self.value(x)
+        embedding = self.embedding(x) + self.pos_enc[: x.size(0)]
+        # layer normalization
+        embedding = torch.nn.functional.layer_norm(embedding, embedding.size()[1:])
+        query = self.query(embedding)
+        key = self.key(embedding)
+        value = self.value(embedding)
         attention_scores = torch.matmul(query, key.transpose(-2, -1)) / (
             key.size(-1) ** 0.5
         )
         # mask self-attention
         # Create a mask to allow each token to attend only to itself and future tokens (causal mask)
-        mask = torch.triu(
-            torch.ones_like(attention_scores, dtype=torch.bool), diagonal=0
-        )
-        attention_scores = torch.where(mask, attention_scores, float("-inf"))
+        mask = torch.triu(torch.ones(attention_scores.size(-2), 
+                                     attention_scores.size(-1)), diagonal=1).bool()
+        attention_scores = attention_scores.masked_fill(mask, float('-inf'))
         attention_weights = torch.nn.functional.softmax(
             attention_scores, dim=-1
         )
-        x = torch.matmul(attention_weights, value)
+        x = torch.matmul(attention_weights, value) + embedding
         x = torch.nn.functional.relu(x)  # Apply activation function
 
-        for layer in self.layers:
-            x = layer(x)
-            x = torch.nn.functional.relu(x)
+        for i in range(0, len(self.layers)-1, 2):
+            x = torch.nn.functional.relu(self.layers[i](x))
+            x = self.layers[i+1](x)
+        # Last layer: vocab logits
+        x = self.layers[-1](x)
 
         return x

@@ -11,6 +11,7 @@ class bag_of_words:
         self.text = [re.sub(r'[^\w\s]', '', line) for line in text]  # Remove punctuation
 
         words = np.unique(np.concatenate([line.split() for line in self.text]))  # Get unique words
+        words = np.append(words, "UNK")
         self.word_to_index = {word: i for i, word in enumerate(words)}  # Create a mapping from words to indices
 
     def codify(self, line):
@@ -22,5 +23,5 @@ class bag_of_words:
         words = [re.sub(r'[^\w\s]', '', word) for word in words]
         # look up the index of each word in the mapping
         # unkonwn words will be mapped to -1
-        indices = [self.word_to_index.get(word, -1) for word in words]
+        indices = [self.word_to_index.get(word, self.word_to_index["UNK"]) for word in words]
         return indices

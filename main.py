@@ -9,10 +9,10 @@ line = "Alice was beginning"
 vector = bow.codify(line)  # Convert the line into a bag-of-words vector
 
 #embed = Embedding(vocab_size=len(bow.word_to_index), embedding_dim=50)  # Create an instance of the Embedding class
-#out = embed(torch.tensor(vector))  # Pass the bag-of-words vector through the embedding layer
+#out = embed(vector)  # Pass the bag-of-words vector through the embedding layer
 
 transform = Transformer(vocab_size=len(bow.word_to_index), 
-                embedding_dim=64, mlp_layers=2, mlp_dim=2000,
+                embedding_dim=128, mlp_layers=2, mlp_dim=200,
                 context_window_size=100)  # Create an instance of the Transformer class
 
 with open('alice-in-wonderland.txt', 'r') as file:
@@ -31,7 +31,7 @@ test_text, val_text = test_text[:-val_size], test_text[-val_size:]
 
 # Define loss function and optimizer
 criterion = torch.nn.CrossEntropyLoss()
-optimizer = optim.AdamW(transform.parameters(), lr=1e-4)
+optimizer = optim.AdamW(transform.parameters(), lr=1e-4, weight_decay=1e-5)  # Use AdamW optimizer
 
 best_loss = float('inf')  # Initialize best loss
 patience_counter = 0  # Initialize patience counter
@@ -43,8 +43,8 @@ for epoch in range(100):  # Number of epochs
     count = 0
     for vector in train_text:
         if len(vector) > 1:
-            output = transform(torch.tensor(vector).unsqueeze(0))  # Add batch dimension
-            target = torch.tensor(vector[1:])
+            output = transform(vector.unsqueeze(0))  # Add batch dimension
+            target = vector[1:]
             loss = criterion(output[0, :-1], target)
             total_loss += loss.item()
             count += 1
@@ -57,8 +57,8 @@ for epoch in range(100):  # Number of epochs
     with torch.no_grad():
         for vector in val_text:
             if len(vector) > 1:
-                output = transform(torch.tensor(vector).unsqueeze(0))
-                target = torch.tensor(vector[1:])
+                output = transform(vector.unsqueeze(0))
+                target = vector[1:]
                 loss = criterion(output[0, :-1], target)
                 val_loss += loss.item()
                 val_count += 1
@@ -81,8 +81,8 @@ with torch.no_grad():
     count = 0
     for vector in test_text:
         if len(vector) > 1:
-            output = transform(torch.tensor(vector).unsqueeze(0))
-            target = torch.tensor(vector[1:])
+            output = transform(vector.unsqueeze(0))
+            target = vector[1:]
             loss = criterion(output[0, :-1], target)
             test_loss += loss.item()
             count += 1
@@ -91,7 +91,7 @@ with torch.no_grad():
 
 output = transform(torch.tensor(bow.codify("how are ")).unsqueeze(0))
 print("Output shape:", output.shape)  # Print the shape of the output
-output = np.argmax(output[0, -1, :].detach().numpy()) # Get the predicted indices
+output = np.argmax(output[0, -1, :].detach().numpy())
 index_to_word = {i: w for w, i in bow.word_to_index.items()}
 predicted_word = index_to_word[output]
 print("Predicted words:", predicted_word)  # Print the predicted words

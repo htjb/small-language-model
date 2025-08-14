@@ -6,18 +6,21 @@ import math
 def sinusoidal_positional_encoding(max_seq_len, embedding_dim):
     pe = torch.zeros(max_seq_len, embedding_dim)
     position = torch.arange(0, max_seq_len, dtype=torch.float).unsqueeze(1)
-
-    # Number of sin/cos pairs needed for even indices
-    num_timescales = math.ceil(embedding_dim / 2)
-    div_term = torch.exp(
-        torch.arange(0, num_timescales).float() * (-math.log(10000.0) / embedding_dim)
-    )
-
-    # Fill even dimensions (0, 2, 4, ...)
-    pe[:, 0::2] = torch.sin(position * div_term[: pe[:, 0::2].shape[1]])
-    # Fill odd dimensions (1, 3, 5, ...)
-    pe[:, 1::2] = torch.cos(position * div_term[: pe[:, 1::2].shape[1]])
-
+    
+    # Create the div_term for frequency scaling
+    div_term = torch.exp(torch.arange(0, embedding_dim, 2).float() * 
+                         -(math.log(10000.0) / embedding_dim))
+    
+    # Apply sine to even indices
+    pe[:, 0::2] = torch.sin(position * div_term)
+    
+    # Apply cosine to odd indices
+    # Handle the case where embedding_dim is odd
+    if embedding_dim % 2 == 1:
+        pe[:, 1::2] = torch.cos(position * div_term[:-1])
+    else:
+        pe[:, 1::2] = torch.cos(position * div_term)
+    
     return pe
 
 class Transformer(nn.Module):
@@ -40,13 +43,13 @@ class Transformer(nn.Module):
         )
 
         self.layers = nn.ModuleList()
+        self.layers.append(nn.Linear(embedding_dim, mlp_dim))
         for _ in range(mlp_layers):
-            self.layers.append(nn.Linear(embedding_dim, mlp_dim))
-            self.layers.append(nn.Linear(mlp_dim, embedding_dim))
-        self.layers.append(nn.Linear(embedding_dim, vocab_size))
+            self.layers.append(nn.Linear(mlp_dim, mlp_dim))
+        self.layers.append(nn.Linear(mlp_dim, vocab_size))
 
     def forward(self, x):
-        embedding = self.embedding(x) + self.pos_enc[: x.size(0)]
+        embedding = self.embedding(x) + self.pos_enc[: x.size(1)]
         # layer normalization
         embedding = torch.nn.functional.layer_norm(embedding, embedding.size()[1:])
         query = self.query(embedding)
@@ -57,8 +60,8 @@ class Transformer(nn.Module):
         )
         # mask self-attention
         # Create a mask to allow each token to attend only to itself and future tokens (causal mask)
-        mask = torch.triu(torch.ones(attention_scores.size(-2), 
-                                     attention_scores.size(-1)), diagonal=1).bool()
+        mask = torch.tril(torch.ones(attention_scores.size(-2), 
+                                     attention_scores.size(-1)), diagonal=-1).bool()
         attention_scores = attention_scores.masked_fill(mask, float('-inf'))
         attention_weights = torch.nn.functional.softmax(
             attention_scores, dim=-1
@@ -66,10 +69,11 @@ class Transformer(nn.Module):
         x = torch.matmul(attention_weights, value) + embedding
         x = torch.nn.functional.relu(x)  # Apply activation function
 
-        for i in range(0, len(self.layers)-1, 2):
-            x = torch.nn.functional.relu(self.layers[i](x))
-            x = self.layers[i+1](x)
-        # Last layer: vocab logits
-        x = self.layers[-1](x)
+        
+        x = self.layers[0](x)  # First layer
+
+        for i in range(1, len(self.layers)):
+            x = torch.nn.functional.relu(x)
+            x = self.layers[i](x)
 
         return x

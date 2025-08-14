@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 import re
 
 class bag_of_words:
@@ -23,5 +24,5 @@ class bag_of_words:
         words = [re.sub(r'[^\w\s]', '', word) for word in words]
         # look up the index of each word in the mapping
         # unkonwn words will be mapped to -1
-        indices = [self.word_to_index.get(word, self.word_to_index["UNK"]) for word in words]
+        indices = torch.tensor([self.word_to_index.get(word, self.word_to_index["UNK"]) for word in words])
         return indices

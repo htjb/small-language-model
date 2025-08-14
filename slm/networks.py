@@ -43,6 +43,7 @@ class Transformer(nn.Module):
         for _ in range(mlp_layers):
             self.layers.append(nn.Linear(embedding_dim, mlp_dim))
             self.layers.append(nn.Linear(mlp_dim, embedding_dim))
+        self.layers.append(nn.Linear(embedding_dim, vocab_size))
 
     def forward(self, x):
         x = self.embedding(x) + self.pos_enc[: x.size(0)]

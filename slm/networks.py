@@ -1,21 +1,20 @@
 import torch.nn as nn
 import torch
 
-class Embedding(nn.Module):
-    def __init__(self, vocab_size, embedding_dim):
-        super(Embedding, self).__init__()
-        self.embedding = nn.Embedding(vocab_size, embedding_dim)
-
-    def forward(self, x):
-        return self.embedding(x)
 
 class Transformer(nn.Module):
-    def __init__(self, vocab_size, embedding_dim):
+    def __init__(self, vocab_size, embedding_dim, mlp_layers, mlp_dim):
         super(Transformer, self).__init__()
-        self.embedding = Embedding(vocab_size, embedding_dim)
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
         self.query = nn.Linear(embedding_dim, embedding_dim)
         self.key = nn.Linear(embedding_dim, embedding_dim)
         self.value = nn.Linear(embedding_dim, embedding_dim)
+
+        self.layers = nn.ModuleList()
+        for _ in range(mlp_layers):
+            self.layers.append(nn.Linear(embedding_dim, mlp_dim))
+            self.layers.append(nn.Linear(mlp_dim, embedding_dim))
+        
 
     def forward(self, x):
         x = self.embedding(x)
@@ -30,4 +29,9 @@ class Transformer(nn.Module):
         attention_weights = torch.nn.functional.softmax(attention_scores, dim=-1)
         x = torch.matmul(attention_weights, value)
         x = torch.nn.functional.relu(x)  # Apply activation function
+
+        for layer in self.layers:
+            x = layer(x)
+            x = torch.nn.functional.relu(x)
+
         return x

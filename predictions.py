@@ -18,13 +18,13 @@ embedding_size = hyperparameters['embedding_size']  # Define the embedding size
 mlp_layers = hyperparameters['mlp_layers']  # Define the number of MLP layers
 mlp_dim = hyperparameters['mlp_dim']  # Define the MLP dimension
 context_window_size = hyperparameters['context_window_size']  # Define the context window size
-nheads = 2#hyperparameters['nheads']  # Define the number of attention heads
+nheads = hyperparameters['nheads']  # Define the number of attention heads
 
 bow = bag_of_words() 
 
 transform = Transformer(vocab_size=len(bow.word_to_index), 
                 embedding_dim=embedding_size, mlp_layers=mlp_layers, mlp_dim=mlp_dim,
-                context_window_size=context_window_size, nheads=2,
+                context_window_size=context_window_size, nheads=nheads,
                 predict=True)  # Create an instance of the Transformer class
 
 state_dict = torch.load('alice_in_wonderland_model.pth', map_location=torch.device('cpu'))  # Load the state dictionary

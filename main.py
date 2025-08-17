@@ -16,28 +16,29 @@ def step(vector: torch.Tensor, transform: Transformer,
     return loss, output, target
 
 
-batch_size = 64 # Define the batch size
+batch_size = 32 # Define the batch size
 embedding_size = 128  # Define the embedding size
 mlp_layers = 5  # Define the number of MLP layers
 mlp_dim = 512  # Define the MLP dimension
 context_window_size = 512  # Define the context window size
+nheads = 2
 
 hyperparameters = {
     'embedding_size': embedding_size,
     'mlp_layers': mlp_layers,
     'mlp_dim': mlp_dim,
     'context_window_size': context_window_size,
-    'batch_size': batch_size
+    'batch_size': batch_size,
+    'nheads': nheads  # Define the number of attention heads
 }
 
-bow = bag_of_words() 
-line = "Alice was beginning"
-vector = bow.codify(line)  
+bow = bag_of_words()
 
 transform = Transformer(vocab_size=len(bow.word_to_index), 
-                embedding_dim=embedding_size, mlp_layers=mlp_layers, mlp_dim=mlp_dim,
+                embedding_dim=embedding_size, 
+                mlp_layers=mlp_layers, mlp_dim=mlp_dim,
                 context_window_size=context_window_size,
-                nheads=2)  # Create an instance of the Transformer class
+                nheads=nheads)  # Create an instance of the Transformer class
 
 with open('alice-in-wonderland.txt', 'r') as file:
     text = file.readlines()  # Read the text file line by line 
@@ -79,9 +80,9 @@ optimizer = optim.AdamW(transform.parameters(), lr=1e-4, weight_decay=1e-5)  # U
 best_loss = float('inf')  # Initialize best loss
 best_model = None  # Placeholder for the best model
 patience_counter = 0  # Initialize patience counter
-patience = 25
+patience = 50
 
-pbar = tqdm(range(100), desc="Training Progress")  # Initialize progress bar
+pbar = tqdm(range(1000), desc="Training Progress")  # Initialize progress bar
 
 for epoch in pbar:  # Number of epochs
     optimizer.zero_grad()

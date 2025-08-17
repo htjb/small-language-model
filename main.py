@@ -10,7 +10,7 @@ import yaml
 
 def step(vector: torch.Tensor, transform: Transformer, 
          criterion: torch.nn.CrossEntropyLoss):
-    output = transform(vector[0].unsqueeze(0))  # Add batch dimension
+    output = transform(vector[0].unsqueeze(0))
     target = torch.tensor(vector[0][1:])
     loss = criterion(output[0, :-1], target)
     return loss, output, target
@@ -76,6 +76,7 @@ criterion = torch.nn.CrossEntropyLoss()
 optimizer = optim.AdamW(transform.parameters(), lr=1e-4, weight_decay=1e-5)  # Use AdamW optimizer
 
 best_loss = float('inf')  # Initialize best loss
+best_model = None  # Placeholder for the best model
 patience_counter = 0  # Initialize patience counter
 patience = 25
 
@@ -100,6 +101,7 @@ for epoch in pbar:  # Number of epochs
     
     if val_loss < best_loss:
         best_loss = val_loss
+        best_model = transform.state_dict()  # Save the best model
         patience_counter = 0
     else:
         patience_counter += 1
@@ -114,6 +116,8 @@ for epoch in pbar:  # Number of epochs
         'best_loss': best_loss,
         'patience_counter': patience_counter
     })  # Update progress bar with current losses
+
+transform.load_state_dict(best_model)  # Load the best model
 
 torch.save(transform.state_dict(), 'alice_in_wonderland_model.pth')
 with open('alice_in_wonderland_hyperparameters.yaml', 'w') as f:
@@ -137,6 +141,7 @@ print("Vocabulary size:", len(bow.word_to_index))  # Print the vocabulary size
 
 output = transform(torch.tensor(bow.codify("Alice was beginning")).unsqueeze(0))
 print("Output shape:", output.shape)  # Print the shape of the output
+# the last ouput is the prediction for the next word
 output = np.argmax(output[0, -1, :].detach().numpy())
 index_to_word = {i: w for w, i in bow.word_to_index.items()}
 predicted_word = index_to_word[output]

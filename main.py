@@ -10,9 +10,9 @@ import yaml
 
 def step(vector: torch.Tensor, transform: Transformer, 
          criterion: torch.nn.CrossEntropyLoss):
-    output = transform(vector[0].unsqueeze(0))
+    output = transform(vector[0][:-1].unsqueeze(0))
     target = torch.tensor(vector[0][1:])
-    loss = criterion(output[0, :-1], target)
+    loss = criterion(output[0], target)
     return loss, output, target
 
 
@@ -129,7 +129,7 @@ with torch.no_grad():
     correct, incorrect = 0, 0
     for vector in test_dataloader:
         loss, output, target = step(vector, transform, criterion)
-        pred = torch.argmax(output[0, :-1], dim=1)
+        pred = torch.argmax(output[0], dim=1)
         correct += (pred == target).sum().item()
         incorrect += (pred != target).sum().item()
         test_loss += loss.item()

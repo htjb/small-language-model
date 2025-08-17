@@ -139,6 +139,9 @@ with torch.no_grad():
     print(f"Correct: {correct}, Incorrect: {incorrect}")  # Print the number of correct and incorrect predictions
 print("Vocabulary size:", len(bow.word_to_index))  # Print the vocabulary size
 
+
+# only need to make pass through the mlp for the last word... will need to think
+# about how to do this in the future
 output = transform(torch.tensor(bow.codify("Alice was beginning")).unsqueeze(0))
 print("Output shape:", output.shape)  # Print the shape of the output
 # the last ouput is the prediction for the next word

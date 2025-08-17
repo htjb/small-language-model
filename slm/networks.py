@@ -35,7 +35,7 @@ class Transformer(nn.Module):
         predict=False
     ):
         super(Transformer, self).__init__()
-        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=0)
         self.nheads = nheads
         self.predict = predict
 
@@ -62,28 +62,34 @@ class Transformer(nn.Module):
 
     def forward(self, x):
         embedding = self.embedding(x) + self.pos_enc[: x.size(1)]
-        # layer normalization
         embedding = self.layer_norm(embedding)
+
+        # Create padding mask: True where pad tokens are
+        pad_mask = (x == 0)  # shape [batch, seq_len]
 
         attention_head_outputs = []
         for i in range(self.nheads):
             query = self.query[i](embedding)
             key = self.key[i](embedding)
             value = self.value[i](embedding)
+
             attention_scores = torch.matmul(query, key.transpose(-2, -1)) / (
                 key.size(-1) ** 0.5
             )
-            # mask self-attention
-            # Create a mask to allow each token to attend only to itself and future tokens (causal mask)
-            mask = torch.tril(torch.ones(attention_scores.size(-2), 
-                                        attention_scores.size(-1)), diagonal=-1).bool()
-            attention_scores = attention_scores.masked_fill(mask, float('-inf'))
-            attention_weights = torch.nn.functional.softmax(
-                attention_scores, dim=-1
-            )
-            attention_head_outputs.append(
-                torch.matmul(attention_weights, value)
-            )
+
+            # Causal mask
+            seq_len = x.size(1)
+            causal_mask = torch.tril(torch.ones(seq_len, seq_len)).bool()
+            
+            # Combine causal + pad mask
+            # pad_mask: [batch, seq_len] -> expand to [batch, 1, seq_len]
+            combined_mask = (causal_mask).unsqueeze(0) | pad_mask.unsqueeze(1)
+
+            attention_scores = attention_scores.masked_fill(combined_mask, -1e9)
+
+            attention_weights = torch.nn.functional.softmax(attention_scores, dim=-1)
+
+            attention_head_outputs.append(torch.matmul(attention_weights, value))
 
         x = torch.stack(attention_head_outputs, dim=1).sum(dim=1)
         x = x + embedding

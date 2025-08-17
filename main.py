@@ -2,22 +2,27 @@ from slm.bag_of_words import bag_of_words  # Import the bag_of_words class
 from slm.networks import Transformer  # Import the Embedding class
 from sklearn.model_selection import train_test_split  # Import train_test_split for splitting data
 from torch.utils.data import TensorDataset, DataLoader, SubsetRandomSampler  # Import Dataset and DataLoader for handling data
+from torch.nn.utils.rnn import pad_sequence
 import torch.optim as optim
 from tqdm import tqdm  # Import tqdm for progress bar
 import torch
 import numpy as np
 import yaml
 
-def step(vector: torch.Tensor, transform: Transformer, 
-         criterion: torch.nn.CrossEntropyLoss):
-    output = transform(vector[0][:-1].unsqueeze(0))
-    target = torch.tensor(vector[0][1:])
-    loss = criterion(output[0], target)
-    return loss, output, target
+def step(batch: torch.Tensor, transform: Transformer, criterion: torch.nn.CrossEntropyLoss):
+    # batch shape: (batch_size, seq_len)
+    input_seq = batch[:, :-1]  # All sequences, except last token
+    target_seq = batch[:, 1:]  # Shifted targets
+
+    output = transform(input_seq)  # shape: (batch_size, seq_len-1, vocab_size)
+
+    # CrossEntropyLoss expects (N, C) and (N,) => flatten batch and seq dims
+    loss = criterion(output.reshape(-1, output.size(-1)), target_seq.reshape(-1))
+    return loss, output, target_seq
 
 
-batch_size = 32 # Define the batch size
-embedding_size = 128  # Define the embedding size
+batch_size = 128 # Define the batch size
+embedding_size = 256  # Define the embedding size
 mlp_layers = 5  # Define the number of MLP layers
 mlp_dim = 512  # Define the MLP dimension
 context_window_size = 512  # Define the context window size
@@ -34,7 +39,7 @@ hyperparameters = {
 
 bow = bag_of_words()
 
-transform = Transformer(vocab_size=len(bow.word_to_index), 
+transform = Transformer(vocab_size=len(bow.word_to_index)+1, 
                 embedding_dim=embedding_size, 
                 mlp_layers=mlp_layers, mlp_dim=mlp_dim,
                 context_window_size=context_window_size,
@@ -43,23 +48,21 @@ transform = Transformer(vocab_size=len(bow.word_to_index),
 with open('alice-in-wonderland.txt', 'r') as file:
     text = file.readlines()  # Read the text file line by line 
 
+# Assume bow.codify(t) returns a 1D LongTensor for each text
+codified_texts = [bow.codify(t) for t in text if t.strip()]  
 
-codified_text = [bow.codify(t) for t in text if t.strip()]  # Codify each line of the text
-codified_text = torch.concat(codified_text, dim=0)  # Concatenate the codified lines into a single tensor
-
-train, test = train_test_split(codified_text, test_size=0.2, random_state=42)
-train_text = torch.tensor(train, dtype=torch.long)
-test = torch.tensor(test, dtype=torch.long)
+# Train/test/val split
+train, test = train_test_split(codified_texts, test_size=0.2, random_state=42)
 test, val = train_test_split(test, test_size=0.5, random_state=42)
-test_text = torch.tensor(test, dtype=torch.long) 
-val_text = torch.tensor(val, dtype=torch.long)
 
-train_text = TensorDataset(train_text) 
-test_text = TensorDataset(test_text)
-val_text = TensorDataset(val_text)
+# Collate function: pad within a batch
+def collate_batch(batch):
+    # batch is a list of 1D tensors
+    return pad_sequence(batch, batch_first=True, padding_value=0)
+
 
 # Create all indices for complete batches
-num_complete_batches = len(train_text) // batch_size
+num_complete_batches = len(train) // batch_size
 total_indices = num_complete_batches * batch_size
 
 # Create batch-wise shuffled indices
@@ -69,12 +72,17 @@ shuffled_indices = indices.flatten()
 
 sampler = SubsetRandomSampler(shuffled_indices)
 
-train_dataloader = DataLoader(train_text, batch_size=batch_size, sampler=sampler, shuffle=False)
-test_dataloader = DataLoader(test_text, batch_size=batch_size, shuffle=False)
-val_dataloader = DataLoader(val_text, batch_size=batch_size, shuffle=False)
+# DataLoaders with padding per batch
+train_dataloader = DataLoader(train, batch_size=batch_size, 
+                              shuffle=False, sampler=sampler, 
+                              collate_fn=collate_batch)
+val_dataloader   = DataLoader(val, batch_size=batch_size, 
+                              shuffle=False, collate_fn=collate_batch)
+test_dataloader  = DataLoader(test, batch_size=batch_size, 
+                              shuffle=False, collate_fn=collate_batch)
 
 # Define loss function and optimizer
-criterion = torch.nn.CrossEntropyLoss()
+criterion = torch.nn.CrossEntropyLoss(ignore_index=0)  # Ignore padding index
 optimizer = optim.AdamW(transform.parameters(), lr=1e-4, weight_decay=1e-5)  # Use AdamW optimizer
 
 best_loss = float('inf')  # Initialize best loss
@@ -128,17 +136,22 @@ with open('alice_in_wonderland_hyperparameters.yaml', 'w') as f:
 transform.eval()  # Set the model to evaluation mode
 with torch.no_grad():
     test_loss = 0.0
-    correct, incorrect = 0, 0
+    correct, total = 0, 0
     for vector in test_dataloader:
         loss, output, target = step(vector, transform, criterion)
-        pred = torch.argmax(output[0], dim=1)
-        correct += (pred == target).sum().item()
-        incorrect += (pred != target).sum().item()
+        # output: [batch, seq_len, vocab_size+1]
+        output[:, :, 0] = float('-inf')  # make pad impossible to predict
+        pred = torch.argmax(output, dim=2)  # [batch, seq_len]
+
+        # Mask positions where target == 0 (padding)
+        mask = target != 0
+        correct += (pred == target).masked_select(mask).sum().item()
+        total += mask.sum().item()
         test_loss += loss.item()
     test_loss /= len(test_dataloader)  # Average test loss
     print(f"Test Loss: {test_loss}")  # Print the test loss
-    print(f"Accuracy: {correct / (correct + incorrect) * 100:.2f}%")  # Print the accuracy
-    print(f"Correct: {correct}, Incorrect: {incorrect}")  # Print the number of correct and incorrect predictions
+    print(f"Accuracy: {correct / (correct + total) * 100:.2f}%")  # Print the accuracy
+    print(f"Correct: {correct}, Incorrect: {total - correct}")  # Print the number of correct and incorrect predictions
 print("Vocabulary size:", len(bow.word_to_index))  # Print the vocabulary size
 
 
@@ -147,7 +160,7 @@ print("Vocabulary size:", len(bow.word_to_index))  # Print the vocabulary size
 output = transform(torch.tensor(bow.codify("Alice was beginning")).unsqueeze(0))
 print("Output shape:", output.shape)  # Print the shape of the output
 # the last ouput is the prediction for the next word
-output = np.argmax(output[0, -1, :].detach().numpy())
+output = np.argmax(output[0, -1, 1:].detach().numpy())
 index_to_word = {i: w for w, i in bow.word_to_index.items()}
 predicted_word = index_to_word[output]
 print("Predicted words:", predicted_word)  # Print the predicted words

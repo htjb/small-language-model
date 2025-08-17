@@ -13,7 +13,7 @@ class bag_of_words:
 
         words = np.unique(np.concatenate([line.split() for line in self.text]))  # Get unique words
         words = np.append(words, "UNK")
-        self.word_to_index = {word: i for i, word in enumerate(words)}  # Create a mapping from words to indices
+        self.word_to_index = {word: i+1 for i, word in enumerate(words)}  # Create a mapping from words to indices
 
     def codify(self, line):
         """

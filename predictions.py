@@ -22,7 +22,7 @@ nheads = hyperparameters['nheads']  # Define the number of attention heads
 
 bow = bag_of_words() 
 
-transform = Transformer(vocab_size=len(bow.word_to_index), 
+transform = Transformer(vocab_size=len(bow.word_to_index)+1, 
                 embedding_dim=embedding_size, mlp_layers=mlp_layers, mlp_dim=mlp_dim,
                 context_window_size=context_window_size, nheads=nheads,
                 predict=True)  # Create an instance of the Transformer class
@@ -38,7 +38,7 @@ test_phrase = "how are you today what is"  # Define a test phrase
 vector = bow.codify(test_phrase)
 for i in range(10):
     output = transform(vector.unsqueeze(0))
-    out = np.argmax(output[0, -1, :].detach().numpy())
+    out = np.argmax(output[0, -1, 1:].detach().numpy())
     index_to_word = {i: w for w, i in bow.word_to_index.items()}
     predicted_word = index_to_word[out]
     print("Predicted word:", predicted_word, " Out:", out)  # Print the predicted word

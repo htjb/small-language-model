@@ -38,6 +38,11 @@ train_dataloader = DataLoader(train_text, batch_size=batch_size, shuffle=False)
 test_dataloader = DataLoader(test_text, batch_size=batch_size, shuffle=False)
 val_dataloader = DataLoader(val_text, batch_size=batch_size, shuffle=False)
 
+"""train_batches = next(iter(train_dataloader))
+train_batches_perm = torch.randperm(len(train_batches))
+train_batches = train_batches[train_batches_perm]  # Shuffle the training batches
+print(train_batches.shape)  # Print the shape of the training batches
+exit()"""
 
 # Define loss function and optimizer
 criterion = torch.nn.CrossEntropyLoss()
@@ -51,7 +56,7 @@ for epoch in range(100):  # Number of epochs
     optimizer.zero_grad()
     total_loss = 0.0
     count = 0
-    for vector in train_dataloader:
+    for vector in train_batches:
         output = transform(vector[0].unsqueeze(0))  # Add batch dimension
         target = torch.tensor(vector[0][1:])
         loss = criterion(output[0, :-1], target)

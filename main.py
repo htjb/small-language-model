@@ -36,7 +36,8 @@ vector = bow.codify(line)
 
 transform = Transformer(vocab_size=len(bow.word_to_index), 
                 embedding_dim=embedding_size, mlp_layers=mlp_layers, mlp_dim=mlp_dim,
-                context_window_size=context_window_size)  # Create an instance of the Transformer class
+                context_window_size=context_window_size,
+                nheads=2)  # Create an instance of the Transformer class
 
 with open('alice-in-wonderland.txt', 'r') as file:
     text = file.readlines()  # Read the text file line by line 

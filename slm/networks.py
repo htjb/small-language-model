@@ -31,12 +31,20 @@ class Transformer(nn.Module):
         mlp_layers,
         mlp_dim,
         context_window_size,
+        nheads,
     ):
         super(Transformer, self).__init__()
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        self.query = nn.Linear(embedding_dim, embedding_dim)
-        self.key = nn.Linear(embedding_dim, embedding_dim)
-        self.value = nn.Linear(embedding_dim, embedding_dim)
+        self.nheads = nheads
+
+
+        self.query = nn.ModuleList()
+        self.key = nn.ModuleList()
+        self.value = nn.ModuleList()
+        for _ in range(nheads):
+            self.query.append(nn.Linear(embedding_dim, embedding_dim))
+            self.key.append(nn.Linear(embedding_dim, embedding_dim))
+            self.value.append(nn.Linear(embedding_dim, embedding_dim))
 
         self.pos_enc = sinusoidal_positional_encoding(
             context_window_size, embedding_dim
@@ -54,22 +62,29 @@ class Transformer(nn.Module):
         embedding = self.embedding(x) + self.pos_enc[: x.size(1)]
         # layer normalization
         embedding = self.layer_norm(embedding)
-    
-        query = self.query(embedding)
-        key = self.key(embedding)
-        value = self.value(embedding)
-        attention_scores = torch.matmul(query, key.transpose(-2, -1)) / (
-            key.size(-1) ** 0.5
-        )
-        # mask self-attention
-        # Create a mask to allow each token to attend only to itself and future tokens (causal mask)
-        mask = torch.tril(torch.ones(attention_scores.size(-2), 
-                                     attention_scores.size(-1)), diagonal=-1).bool()
-        attention_scores = attention_scores.masked_fill(mask, float('-inf'))
-        attention_weights = torch.nn.functional.softmax(
-            attention_scores, dim=-1
-        )
-        x = torch.matmul(attention_weights, value) + embedding
+
+        attention_head_outputs = []
+        for i in range(self.nheads):
+            query = self.query[i](embedding)
+            key = self.key[i](embedding)
+            value = self.value[i](embedding)
+            attention_scores = torch.matmul(query, key.transpose(-2, -1)) / (
+                key.size(-1) ** 0.5
+            )
+            # mask self-attention
+            # Create a mask to allow each token to attend only to itself and future tokens (causal mask)
+            mask = torch.tril(torch.ones(attention_scores.size(-2), 
+                                        attention_scores.size(-1)), diagonal=-1).bool()
+            attention_scores = attention_scores.masked_fill(mask, float('-inf'))
+            attention_weights = torch.nn.functional.softmax(
+                attention_scores, dim=-1
+            )
+            attention_head_outputs.append(
+                torch.matmul(attention_weights, value)
+            )
+
+        x = torch.stack(attention_head_outputs, dim=1).sum(dim=1)
+        x = x + embedding
         x = self.layer_norm(x)  # Apply layer normalization
         x = torch.nn.functional.relu(x)  # Apply activation function
 

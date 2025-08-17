@@ -6,15 +6,16 @@ import torch.optim as optim
 import torch
 import numpy as np
 
-batch_size = 64  # Define the batch size
+batch_size = 32 # Define the batch size
+embedding_size = 32  # Define the embedding size
 
 bow = bag_of_words() 
 line = "Alice was beginning"
 vector = bow.codify(line)  
 
 transform = Transformer(vocab_size=len(bow.word_to_index), 
-                embedding_dim=64, mlp_layers=1, mlp_dim=256,
-                context_window_size=100)  # Create an instance of the Transformer class
+                embedding_dim=embedding_size, mlp_layers=1, mlp_dim=256,
+                context_window_size=512)  # Create an instance of the Transformer class
 
 with open('alice-in-wonderland.txt', 'r') as file:
     text = file.readlines()  # Read the text file line by line 
@@ -56,7 +57,7 @@ for epoch in range(100):  # Number of epochs
     optimizer.zero_grad()
     total_loss = 0.0
     count = 0
-    for vector in train_batches:
+    for vector in train_dataloader:
         output = transform(vector[0].unsqueeze(0))  # Add batch dimension
         target = torch.tensor(vector[0][1:])
         loss = criterion(output[0, :-1], target)

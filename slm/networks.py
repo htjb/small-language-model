@@ -32,10 +32,12 @@ class Transformer(nn.Module):
         mlp_dim,
         context_window_size,
         nheads,
+        predict=False
     ):
         super(Transformer, self).__init__()
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
         self.nheads = nheads
+        self.predict = predict
 
 
         self.query = nn.ModuleList()
@@ -86,6 +88,11 @@ class Transformer(nn.Module):
         x = torch.stack(attention_head_outputs, dim=1).sum(dim=1)
         x = x + embedding
         x = self.layer_norm(x)  # Apply layer normalization
+        
+        if self.predict:
+            x = x[:, -1, :]
+            x = x.unsqueeze(1)
+        
         x = torch.nn.functional.relu(x)  # Apply activation function
 
         # First layer (no residual for input)

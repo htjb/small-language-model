@@ -26,7 +26,7 @@ embedding_size = 128  # Define the embedding size
 mlp_layers = 2  # Define the number of MLP layers
 mlp_dim = 512  # Define the MLP dimension
 context_window_size = 512  # Define the context window size
-nheads = 2
+nheads = 10
 
 hyperparameters = {
     'embedding_size': embedding_size,

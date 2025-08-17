@@ -79,12 +79,11 @@ class Transformer(nn.Module):
         # Residual connections for intermediate layers
         for i in range(1, len(self.layers) - 1):
             residual = x
-            x = torch.nn.functional.relu(x)
             x = self.layers[i](x)
+            x = torch.nn.functional.relu(x)
             x = x + residual  # Add residual connection
 
         # Final layer (output projection, no residual)
-        x = torch.nn.functional.relu(x)
         x = self.layers[-1](x)
 
         return x

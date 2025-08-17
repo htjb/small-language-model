@@ -1,15 +1,14 @@
 from slm.bag_of_words import bag_of_words  # Import the bag_of_words class
 from slm.networks import Transformer  # Import the Embedding class
+from sklearn.model_selection import train_test_split  # Import train_test_split for splitting data
+from torch.utils.data import TensorDataset, DataLoader  # Import Dataset and DataLoader for handling data
 import torch.optim as optim
 import torch
 import numpy as np
 
-bow = bag_of_words()  # Create an instance of the bag_of_words class
+bow = bag_of_words() 
 line = "Alice was beginning"
-vector = bow.codify(line)  # Convert the line into a bag-of-words vector
-
-#embed = Embedding(vocab_size=len(bow.word_to_index), embedding_dim=50)  # Create an instance of the Embedding class
-#out = embed(vector)  # Pass the bag-of-words vector through the embedding layer
+vector = bow.codify(line)  
 
 transform = Transformer(vocab_size=len(bow.word_to_index), 
                 embedding_dim=64, mlp_layers=1, mlp_dim=256,
@@ -18,17 +17,24 @@ transform = Transformer(vocab_size=len(bow.word_to_index),
 with open('alice-in-wonderland.txt', 'r') as file:
     text = file.readlines()  # Read the text file line by line 
 
-# i think this should be a continous list and the nwe split into batches and shuffle...
-codified_text = [bow.codify(t) for t in text if t.strip()]  # Codify each line of the text
 
-indices = np.arange(0, len(codified_text))
-shuffled_indices = np.random.permutation(indices)  # Shuffle the indices
-shuffled_codified_text = [codified_text[i] for i in shuffled_indices]  # Shuffle
-test_size = int(0.3 * len(codified_text))  # Define the test size
-train_text = shuffled_codified_text[:-test_size]  # Split into training text
-test_text = shuffled_codified_text[-test_size:]  # Split into test text
-val_size = int(0.5 * len(test_text))  # Define the validation size
-test_text, val_text = test_text[:-val_size], test_text[-val_size:]
+codified_text = [bow.codify(t) for t in text if t.strip()]  # Codify each line of the text
+codified_text = torch.concat(codified_text, dim=0)  # Concatenate the codified lines into a single tensor
+
+train, test = train_test_split(codified_text, test_size=0.3, random_state=42)
+train_text = torch.tensor(train, dtype=torch.long)
+test = torch.tensor(test, dtype=torch.long)
+test, val = train_test_split(test, test_size=0.5, random_state=42)
+test_text = torch.tensor(test, dtype=torch.long) 
+val_text = torch.tensor(val, dtype=torch.long)
+
+train_text = TensorDataset(train_text) 
+test_text = TensorDataset(test_text)
+val_text = TensorDataset(val_text)
+
+train_dataloader = DataLoader(train_text, batch_size=64, shuffle=True)
+test_dataloader = DataLoader(test_text, batch_size=64, shuffle=False)
+val_dataloader = DataLoader(val_text, batch_size=64, shuffle=False)
 
 # Define loss function and optimizer
 criterion = torch.nn.CrossEntropyLoss()
@@ -42,27 +48,25 @@ for epoch in range(100):  # Number of epochs
     optimizer.zero_grad()
     total_loss = 0.0
     count = 0
-    for vector in train_text:
-        if len(vector) > 1:
-            output = transform(vector.unsqueeze(0))  # Add batch dimension
-            target = vector[1:]
-            loss = criterion(output[0, :-1], target)
-            total_loss += loss.item()
-            count += 1
-            loss.backward()
-            optimizer.step()
+    for vector in train_dataloader:
+        output = transform(vector[0].unsqueeze(0))  # Add batch dimension
+        target = torch.tensor(vector[0][1:])
+        loss = criterion(output[0, :-1], target)
+        total_loss += loss.item()
+        count += 1
+        loss.backward()
+        optimizer.step()
     avg_loss = total_loss / count if count > 0 else 0
 
     val_loss = 0.0
     val_count = 0
     with torch.no_grad():
-        for vector in val_text:
-            if len(vector) > 1:
-                output = transform(vector.unsqueeze(0))
-                target = vector[1:]
-                loss = criterion(output[0, :-1], target)
-                val_loss += loss.item()
-                val_count += 1
+        for vector in val_dataloader:
+            output = transform(vector[0].unsqueeze(0))
+            target = torch.tensor(vector[0][1:])
+            loss = criterion(output[0, :-1], target)
+            val_loss += loss.item()
+            val_count += 1
         
         val_loss = val_loss / val_count if val_count > 0 else 0
     
@@ -80,13 +84,12 @@ transform.eval()  # Set the model to evaluation mode
 with torch.no_grad():
     test_loss = 0.0
     count = 0
-    for vector in test_text:
-        if len(vector) > 1:
-            output = transform(vector.unsqueeze(0))
-            target = vector[1:]
-            loss = criterion(output[0, :-1], target)
-            test_loss += loss.item()
-            count += 1
+    for vector in test_dataloader:
+        output = transform(vector[0].unsqueeze(0))
+        target = torch.tensor(vector[0][1:])
+        loss = criterion(output[0, :-1], target)
+        test_loss += loss.item()
+        count += 1
     test_loss /= count if count > 0 else 0
     print(f"Test Loss: {test_loss}")  # Print the test loss
 

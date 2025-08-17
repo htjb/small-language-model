@@ -6,6 +6,8 @@ import torch.optim as optim
 import torch
 import numpy as np
 
+batch_size = 64  # Define the batch size
+
 bow = bag_of_words() 
 line = "Alice was beginning"
 vector = bow.codify(line)  
@@ -32,9 +34,10 @@ train_text = TensorDataset(train_text)
 test_text = TensorDataset(test_text)
 val_text = TensorDataset(val_text)
 
-train_dataloader = DataLoader(train_text, batch_size=64, shuffle=True)
-test_dataloader = DataLoader(test_text, batch_size=64, shuffle=False)
-val_dataloader = DataLoader(val_text, batch_size=64, shuffle=False)
+train_dataloader = DataLoader(train_text, batch_size=batch_size, shuffle=False)
+test_dataloader = DataLoader(test_text, batch_size=batch_size, shuffle=False)
+val_dataloader = DataLoader(val_text, batch_size=batch_size, shuffle=False)
+
 
 # Define loss function and optimizer
 criterion = torch.nn.CrossEntropyLoss()

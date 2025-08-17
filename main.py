@@ -21,9 +21,9 @@ def step(batch: torch.Tensor, transform: Transformer, criterion: torch.nn.CrossE
     return loss, output, target_seq
 
 
-batch_size = 128 # Define the batch size
-embedding_size = 256  # Define the embedding size
-mlp_layers = 5  # Define the number of MLP layers
+batch_size = 64 # Define the batch size
+embedding_size = 128  # Define the embedding size
+mlp_layers = 2  # Define the number of MLP layers
 mlp_dim = 512  # Define the MLP dimension
 context_window_size = 512  # Define the context window size
 nheads = 2
@@ -150,10 +150,9 @@ with torch.no_grad():
         test_loss += loss.item()
     test_loss /= len(test_dataloader)  # Average test loss
     print(f"Test Loss: {test_loss}")  # Print the test loss
-    print(f"Accuracy: {correct / (correct + total) * 100:.2f}%")  # Print the accuracy
+    print(f"Accuracy: {correct / (total) * 100:.2f}%")  # Print the accuracy
     print(f"Correct: {correct}, Incorrect: {total - correct}")  # Print the number of correct and incorrect predictions
 print("Vocabulary size:", len(bow.word_to_index))  # Print the vocabulary size
-
 
 # only need to make pass through the mlp for the last word... will need to think
 # about how to do this in the future

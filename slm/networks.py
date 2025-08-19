@@ -150,4 +150,4 @@ class Transformer(nn.Module):
                 "entropy": entropy_loss * torch.abs(self.entropy_weight),
             }
         else:
-            return {"ouput": x, "entropy": None}
+            return {"output": x, "entropy": None}

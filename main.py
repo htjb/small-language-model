@@ -20,16 +20,15 @@ def step(
     batch: torch.Tensor,
     transform: Transformer,
     criterion: torch.nn.CrossEntropyLoss,
+    entropy: bool,
 ):
     # batch shape: (batch_size, seq_len)
     input_seq = batch[:, :-1]  # All sequences, except last token
     target_seq = batch[:, 1:]  # Shifted targets
 
-    output, entropy_loss = transform(
-        input_seq
-    )  # shape: (batch_size, seq_len-1, vocab_size)
-
-    # CrossEntropyLoss expects (N, C) and (N,) => flatten batch and seq dims
+    out = transform(input_seq)
+    output = out["output"]  # Get the output from the model
+    entropy_loss = out["entropy"] if entropy else 0  # Get entropy loss if
     loss = (
         criterion(output.reshape(-1, output.size(-1)), target_seq.reshape(-1))
         - entropy_loss
@@ -43,6 +42,7 @@ mlp_layers = 2  # Define the number of MLP layers
 mlp_dim = 512  # Define the MLP dimension
 context_window_size = 512  # Define the context window size
 nheads = 10
+entropy = False
 
 hyperparameters = {
     "embedding_size": embedding_size,
@@ -50,7 +50,8 @@ hyperparameters = {
     "mlp_dim": mlp_dim,
     "context_window_size": context_window_size,
     "batch_size": batch_size,
-    "nheads": nheads,  # Define the number of attention heads
+    "nheads": nheads,
+    "entropy": entropy,
 }
 
 bow = bag_of_words()
@@ -62,6 +63,7 @@ transform = Transformer(
     mlp_dim=mlp_dim,
     context_window_size=context_window_size,
     nheads=nheads,
+    entropy=entropy,
 )  # Create an instance of the Transformer class
 
 with open("alice-in-wonderland.txt", "r") as file:
@@ -71,7 +73,7 @@ with open("alice-in-wonderland.txt", "r") as file:
 codified_texts = [bow.codify(t) for t in text if t.strip()]
 
 # Train/test/val split
-train, test = train_test_split(codified_texts, test_size=0.3, random_state=42)
+train, test = train_test_split(codified_texts, test_size=0.2, random_state=42)
 test, val = train_test_split(test, test_size=0.5, random_state=42)
 
 
@@ -125,7 +127,7 @@ for epoch in pbar:  # Number of epochs
     total_loss = 0.0
     for vector in train_dataloader:
         loss, _, _ = step(
-            vector, transform, criterion
+            vector, transform, criterion, entropy
         )  # Perform a training step
         total_loss += loss.item()
         loss.backward()
@@ -136,7 +138,7 @@ for epoch in pbar:  # Number of epochs
     with torch.no_grad():
         for vector in val_dataloader:
             loss, _, _ = step(
-                vector, transform, criterion
+                vector, transform, criterion, entropy
             )  # Perform a validation step
             val_loss += loss.item()
         val_loss = val_loss / len(val_dataloader)  # Average validation loss
@@ -174,7 +176,7 @@ with torch.no_grad():
     test_loss = 0.0
     correct, total = 0, 0
     for vector in test_dataloader:
-        loss, output, target = step(vector, transform, criterion)
+        loss, output, target = step(vector, transform, criterion, entropy)
         # output: [batch, seq_len, vocab_size+1]
         output[:, :, 0] = float("-inf")  # make pad impossible to predict
         pred = torch.argmax(output, dim=2)  # [batch, seq_len]
@@ -194,9 +196,8 @@ print("Vocabulary size:", len(bow.word_to_index))  # Print the vocabulary size
 
 # only need to make pass through the mlp for the last word... will need to think
 # about how to do this in the future
-output, _ = transform(
-    torch.tensor(bow.codify("Alice was beginning")).unsqueeze(0)
-)
+out = transform(torch.tensor(bow.codify("Alice was beginning")).unsqueeze(0))
+output = out["output"]  # Get the output from the model
 print("Output shape:", output.shape)  # Print the shape of the output
 # the last ouput is the prediction for the next word
 output = np.argmax(output[0, -1, 1:].detach().numpy())

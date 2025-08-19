@@ -92,7 +92,7 @@ indices = np.arange(total_indices).reshape(-1, batch_size)
 np.random.shuffle(indices)  # Shuffle rows (batches)
 shuffled_indices = indices.flatten()
 
-sampler = SubsetRandomSampler(shuffled_indices)
+sampler = SubsetRandomSampler(shuffled_indices.tolist())
 
 # DataLoaders with padding per batch
 train_dataloader = DataLoader(
@@ -165,7 +165,8 @@ for epoch in pbar:  # Number of epochs
         }
     )  # Update progress bar with current losses
 
-transform.load_state_dict(best_model)  # Load the best model
+if best_model is not None:
+    transform.load_state_dict(best_model)  # Load the best model
 
 torch.save(transform.state_dict(), "alice_in_wonderland_model.pth")
 with open("alice_in_wonderland_hyperparameters.yaml", "w") as f:
@@ -202,5 +203,5 @@ print("Output shape:", output.shape)  # Print the shape of the output
 # the last ouput is the prediction for the next word
 output = np.argmax(output[0, -1, 1:].detach().numpy())
 index_to_word = {i: w for w, i in bow.word_to_index.items()}
-predicted_word = index_to_word[output]
+predicted_word = index_to_word[int(output)]
 print("Predicted words:", predicted_word)  # Print the predicted words

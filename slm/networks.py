@@ -68,6 +68,7 @@ class Transformer(nn.Module):
         pad_mask = (x == 0)  # shape [batch, seq_len]
 
         attention_head_outputs = []
+        attention_head_weights = []
         for i in range(self.nheads):
             query = self.query[i](embedding)
             key = self.key[i](embedding)
@@ -88,10 +89,18 @@ class Transformer(nn.Module):
             attention_scores = attention_scores.masked_fill(combined_mask, -1e9)
 
             attention_weights = torch.nn.functional.softmax(attention_scores, dim=-1)
+            attention_head_weights.append(attention_weights)
 
             attention_head_outputs.append(torch.matmul(attention_weights, value))
 
+        attention_head_weights = torch.stack(attention_head_weights, dim=1)  # shape: [batch_size, nheads, seq_len, seq_len]
+        # row-wise entropy
+        entropy = -torch.sum(attention_head_weights * torch.log(attention_head_weights + 1e-8), axis=-1)
+        # shape: [batch_size, nheads, seq_len]
+        # average to a scalar
+        entropy_loss = torch.mean(entropy)
         x = torch.stack(attention_head_outputs, dim=1).sum(dim=1)
+
         x = x + embedding
         x = self.layer_norm(x)  # Apply layer normalization
         
@@ -114,4 +123,7 @@ class Transformer(nn.Module):
         # Final layer (output projection, no residual)
         x = self.layers[-1](x)
 
-        return x
+        if self.predict:
+            return x
+        else:
+            return x, entropy_loss    

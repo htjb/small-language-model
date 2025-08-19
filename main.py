@@ -32,7 +32,7 @@ def step(
     # CrossEntropyLoss expects (N, C) and (N,) => flatten batch and seq dims
     loss = (
         criterion(output.reshape(-1, output.size(-1)), target_seq.reshape(-1))
-        + entropy_loss
+        - entropy_loss
     )
     return loss, output, target_seq
 
@@ -71,7 +71,7 @@ with open("alice-in-wonderland.txt", "r") as file:
 codified_texts = [bow.codify(t) for t in text if t.strip()]
 
 # Train/test/val split
-train, test = train_test_split(codified_texts, test_size=0.2, random_state=42)
+train, test = train_test_split(codified_texts, test_size=0.3, random_state=42)
 test, val = train_test_split(test, test_size=0.5, random_state=42)
 
 

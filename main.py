@@ -25,10 +25,15 @@ def step(
     input_seq = batch[:, :-1]  # All sequences, except last token
     target_seq = batch[:, 1:]  # Shifted targets
 
-    output, entropy_loss = transform(input_seq)  # shape: (batch_size, seq_len-1, vocab_size)
+    output, entropy_loss = transform(
+        input_seq
+    )  # shape: (batch_size, seq_len-1, vocab_size)
 
     # CrossEntropyLoss expects (N, C) and (N,) => flatten batch and seq dims
-    loss = criterion(output.reshape(-1, output.size(-1)), target_seq.reshape(-1)) + entropy_loss
+    loss = (
+        criterion(output.reshape(-1, output.size(-1)), target_seq.reshape(-1))
+        + entropy_loss
+    )
     return loss, output, target_seq
 
 
@@ -189,7 +194,9 @@ print("Vocabulary size:", len(bow.word_to_index))  # Print the vocabulary size
 
 # only need to make pass through the mlp for the last word... will need to think
 # about how to do this in the future
-output, _ = transform(torch.tensor(bow.codify("Alice was beginning")).unsqueeze(0))
+output, _ = transform(
+    torch.tensor(bow.codify("Alice was beginning")).unsqueeze(0)
+)
 print("Output shape:", output.shape)  # Print the shape of the output
 # the last ouput is the prediction for the next word
 output = np.argmax(output[0, -1, 1:].detach().numpy())

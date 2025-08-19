@@ -42,7 +42,7 @@ def step(
 def objective(trial: optuna.Trial):
     batch_size = trial.suggest_categorical("batch_size", [16, 32, 64, 128])
     embedding_size = trial.suggest_categorical(
-        "embedding_size", [128, 256, 512, 1024]
+        "embedding_size", [64, 128, 256, 512]
     )  # Suggest embedding size
     mlp_layers = trial.suggest_int(
         "mlp_layers", 1, 10

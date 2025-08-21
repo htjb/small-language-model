@@ -1,0 +1,28 @@
+body {
+    background-color: #f0f8ff;
+    font-family: Arial, sans-serif;
+}
+
+.welcome-message {
+    text-align: center;
+}
+
+.input {
+    display: flex;
+}
+
+#user-input {
+    width: 300px;
+    padding: 10px;
+    margin: 0 10px 0 10px;
+    border-radius: 10px;
+}
+
+#submit-button {
+    padding: 10px 10px;
+    border-radius: 10px;
+    background-color: #81d5ff;
+    color: white;
+    border: none;
+    cursor: pointer;
+}

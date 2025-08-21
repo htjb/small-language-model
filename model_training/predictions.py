@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 import yaml
-
 from slm.bag_of_words import bag_of_words  # Import the bag_of_words class
 from slm.networks import Transformer  # Import the Embedding class
 

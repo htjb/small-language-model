@@ -8,15 +8,14 @@ import yaml
 from sklearn.model_selection import (  # Import train_test_split for splitting data
     train_test_split,
 )
+from slm.bag_of_words import bag_of_words  # Import the bag_of_words class
+from slm.networks import Transformer  # Import the Embedding class
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import (  # Import Dataset and DataLoader for handling data
     DataLoader,
     SubsetRandomSampler,
 )
 from tqdm import tqdm  # Import tqdm for progress bar
-
-from slm.bag_of_words import bag_of_words  # Import the bag_of_words class
-from slm.networks import Transformer  # Import the Embedding class
 
 
 def step(

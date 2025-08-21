@@ -1,81 +1,81 @@
 html {
-    height: 100%;
+  height: 100%;
 }
 
 body {
-    background: linear-gradient(45deg, #81d5ff, #0098de);
-    font-family: Arial, sans-serif;
+  background: linear-gradient(45deg, #81d5ff, #0098de);
+  font-family: Arial, sans-serif;
 }
 
 header {
-    display: flex;
-    justify-content: left;
+  display: flex;
+  justify-content: left;
 }
 
 nav {
-    padding: 10px;
+  padding: 10px;
 }
 
 h1 {
-    font-size: 5em;
-    margin: 0;
+  font-size: 5em;
+  margin: 0;
 }
 
 .nav-link {
-    color: #333;
-    background-color: #81d5ff;
-    text-decoration: none;
-    padding: 10px;
-    border: none;
-    border-radius: 10px;
+  color: #333;
+  background-color: #81d5ff;
+  text-decoration: none;
+  padding: 10px;
+  border: none;
+  border-radius: 10px;
 }
 
 .content {
-    display: flex; 
-    flex-direction: column; 
-    justify-content: center;
-    min-height:100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
 }
 #welcome-message {
-    text-align: center;
+  text-align: center;
 }
 
 #welcome-message p {
-    font-size: 2em;
-    color: #333;
+  font-size: 2em;
+  color: #333;
 }
 
 .input {
-    display: flex;
-    justify-content: center;
+  display: flex;
+  justify-content: center;
 }
 
 #user-input {
-    width: 50%;
-    padding: 15px;
-    margin: 0 10px 0 10px;
-    border-radius: 10px;
-    border: none;
-    font-size: 1.2em;
+  width: 50%;
+  padding: 15px;
+  margin: 0 10px 0 10px;
+  border-radius: 10px;
+  border: none;
+  font-size: 1.2em;
 }
 
 #submit-button {
-    padding: 10px 10px;
-    border-radius: 10px;
-    background-color: #81d5ff;
-    color: white;
-    border: none;
-    cursor: pointer;
+  padding: 10px 10px;
+  border-radius: 10px;
+  background-color: #81d5ff;
+  color: white;
+  border: none;
+  cursor: pointer;
 }
 
 .model-select {
-    display: flex;
-    justify-content: right;
-    margin: 0 25% 0 0;
+  display: flex;
+  justify-content: right;
+  margin: 0 25% 0 0;
 }
 
 #model-select {
-    margin-top: 20px;
-    width: 20%;
-    font-size: 1.5em;
+  margin-top: 20px;
+  width: 20%;
+  font-size: 1.5em;
 }

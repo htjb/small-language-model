@@ -229,12 +229,6 @@ with open(tuning_dir + "best_hyperparameters.yaml", "w") as f:
 print(
     "Best Hyperparameters:", best_hyperparameters
 )  # Print the best hyperparameters
-torch.save(
-    study.best_trial.user_attrs["model_state_dict"],
-    tuning_dir + "best_model.pth",
-)  # Save the best model state dictionary
-print("Best Model Saved as 'best_model.pth'")  # Print confirmation of model
-
 
 fig = optuna.visualization.plot_optimization_history(
     study

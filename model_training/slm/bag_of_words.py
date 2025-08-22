@@ -9,20 +9,19 @@ class bag_of_words:
         text = []  # Initialize an empty list to hold the text lines
         with open("alice-in-wonderland.txt", "r") as file:
             text = file.readlines()  # Read the text file line by line
-        text = [
-            line.strip().lower() for line in text if line.strip()
-        ]  # Clean and filter empty lines
-        self.text = [
-            re.sub(r"[^\w\s]", "", line) for line in text
-        ]  # Remove punctuation
 
-        words = np.unique(
-            np.concatenate([line.split() for line in self.text])
-        )  # Get unique words
+        # tokenize into words + punctuation
+        # | is or operator in regex
+        # \w+ matches sequences of word characters (letters, digits, underscores)
+        # [] represents a set, ^ negates the set, \w matches word characters, \s matches whitespace characters
+        # so [^\w\s] matches any character that is not a word character or whitespace
+        tokenized = [re.findall(r"\w+|[^\w\s]", line) for line in text]
+
+        # flatten and get unique tokens
+        words = np.unique(np.concatenate(tokenized))
         words = np.append(words, "UNK")
-        self.word_to_index = {
-            word: i + 1 for i, word in enumerate(words)
-        }  # Create a mapping from words to indices
+
+        self.word_to_index = {word: i + 1 for i, word in enumerate(words)}
 
     def codify(self, line):
         """

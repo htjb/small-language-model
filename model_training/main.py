@@ -38,13 +38,13 @@ def step(
     return loss, output, target_seq
 
 
-batch_size = 64  # Define the batch size
-embedding_size = 256  # Define the embedding size
+batch_size = 128  # Define the batch size
+embedding_size = 512  # Define the embedding size
 mlp_layers = 1  # Define the number of MLP layers
 mlp_dim = 512  # Define the MLP dimension
 context_window_size = 1024  # Define the context window size
-nheads = 8
-entropy = False
+nheads = 2
+entropy = True
 
 hyperparameters = {
     "embedding_size": embedding_size,
@@ -167,10 +167,10 @@ for epoch in pbar:  # Number of epochs
 
     pbar.set_postfix(
         {
-            "avg_loss": avg_loss,
-            "val_loss": val_loss,
-            "best_loss": best_loss,
-            "patience_counter": patience_counter,
+            "tl": avg_loss,
+            "vl": val_loss,
+            "bl": best_loss,
+            "pc": patience_counter,
         }
     )  # Update progress bar with current losses
 

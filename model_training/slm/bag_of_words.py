@@ -1,4 +1,5 @@
 import re
+from collections import Counter
 
 import numpy as np
 import torch
@@ -15,15 +16,34 @@ class bag_of_words:
         # \w+ matches sequences of word characters (letters, digits, underscores)
         # [] represents a set, ^ negates the set, \w matches word characters, \s matches whitespace characters
         # so [^\w\s] matches any character that is not a word character or whitespace
-        tokenized = [re.findall(r"\w+|[^\w\s]", line) for line in text]
-        print(tokenized[0])  # Print the first 5 tokenized lines
+        tokenized = [
+            re.findall(r"\w+|[^\w\s]", line, flags=re.UNICODE) for line in text
+        ]
 
-        # flatten and get unique tokens
-        words = np.unique(np.concatenate(tokenized))
-        words = np.append(words, "UNK")
-        words = np.append(words, "EOS")
+        words = np.concatenate(tokenized)
+        words = [w.strip("_") for w in words]
+        # add EOS at sentence ends (same logic as codify)
+        processed_words = []
+        for w in words:
+            processed_words.append(w)
+            if w in [".", "!", "?"]:
+                processed_words.append("EOS")
+        processed_words.append("EOS")
 
-        self.word_to_index = {word: i + 1 for i, word in enumerate(words)}
+        # count frequencies
+        counter = Counter(processed_words)
+
+        # build vocab
+        vocab = sorted(counter.keys())
+        vocab.append("UNK")  # add UNK explicitly if not already there
+
+        self.word_to_index = {word: i + 1 for i, word in enumerate(vocab)}
+        self.index_to_word = {i + 1: word for i, word in enumerate(vocab)}
+
+        # store frequencies as a tensor aligned with vocab indices
+        self.freqs = torch.tensor(
+            [counter.get(word, 0) for word in vocab], dtype=torch.float
+        )
 
     def codify(self, line):
         """

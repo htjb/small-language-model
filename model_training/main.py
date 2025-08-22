@@ -1,3 +1,6 @@
+from collections import defaultdict
+
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.optim as optim
@@ -36,11 +39,11 @@ def step(
 
 
 batch_size = 64  # Define the batch size
-embedding_size = 128  # Define the embedding size
-mlp_layers = 2  # Define the number of MLP layers
+embedding_size = 256  # Define the embedding size
+mlp_layers = 1  # Define the number of MLP layers
 mlp_dim = 512  # Define the MLP dimension
-context_window_size = 512  # Define the context window size
-nheads = 10
+context_window_size = 1024  # Define the context window size
+nheads = 8
 entropy = False
 
 hyperparameters = {
@@ -108,8 +111,15 @@ test_dataloader = DataLoader(
     test, batch_size=batch_size, shuffle=False, collate_fn=collate_batch
 )
 
+weights = 1.0 / (bow.freqs + 1e-6)  # Inverse frequency weighting
+weights = weights / weights.sum()  # * (len(bow.word_to_index) + 1)
+
+# prepend a zero for the PAD class
+pad_weight = torch.tensor([0.0])
+weights = torch.cat([pad_weight, weights])
+
 # Define loss function and optimizer
-criterion = torch.nn.CrossEntropyLoss(ignore_index=0)  # Ignore padding index
+criterion = torch.nn.CrossEntropyLoss(weight=weights)
 optimizer = optim.AdamW(
     transform.parameters(), lr=1e-4, weight_decay=1e-5
 )  # Use AdamW optimizer
@@ -119,7 +129,7 @@ best_model = None  # Placeholder for the best model
 patience_counter = 0  # Initialize patience counter
 patience = 50
 
-pbar = tqdm(range(1000), desc="Training Progress")  # Initialize progress bar
+pbar = tqdm(range(200), desc="Training Progress")  # Initialize progress bar
 
 for epoch in pbar:  # Number of epochs
     optimizer.zero_grad()
@@ -175,6 +185,7 @@ transform.eval()  # Set the model to evaluation mode
 with torch.no_grad():
     test_loss = 0.0
     correct, total = 0, 0
+    truth, predictions = [], []
     for vector in test_dataloader:
         loss, output, target = step(vector, transform, criterion, entropy)
         # output: [batch, seq_len, vocab_size+1]
@@ -186,6 +197,8 @@ with torch.no_grad():
         correct += (pred == target).masked_select(mask).sum().item()
         total += mask.sum().item()
         test_loss += loss.item()
+        truth.extend(target.masked_select(mask).tolist())
+        predictions.extend(pred.masked_select(mask).tolist())
     test_loss /= len(test_dataloader)  # Average test loss
     print(f"Test Loss: {test_loss}")  # Print the test loss
     print(f"Accuracy: {correct / (total) * 100:.2f}%")  # Print the accuracy
@@ -194,9 +207,40 @@ with torch.no_grad():
     )  # Print the number of correct and incorrect predictions
 print("Vocabulary size:", len(bow.word_to_index))  # Print the vocabulary size
 
+plt.scatter(truth, predictions, alpha=0.1)
+plt.xlabel("True Index")
+plt.ylabel("Predicted Index")
+plt.title("True vs Predicted Word Indices")
+plt.savefig("true_vs_predicted_indices.png")
+plt.show()
+
+# Count per-class totals and corrects
+per_class_correct = defaultdict(int)
+per_class_total = defaultdict(int)
+
+for t, p in zip(truth, predictions):
+    per_class_total[t] += 1
+    if t == p:
+        per_class_correct[t] += 1
+
+# Compute per-class accuracy
+per_class_acc = {}
+for cls in per_class_total:
+    per_class_acc[cls] = per_class_correct[cls] / per_class_total[cls]
+
+# Macro accuracy: average across tokens
+macro_acc = sum(per_class_acc.values()) / len(per_class_acc)
+
+print(f"Macro Accuracy: {macro_acc * 100:.2f}%")
+
+# If you have your index_to_word mapping:
+for idx, acc in sorted(per_class_acc.items(), key=lambda x: -x[1]):
+    token = bow.index_to_word.get(idx, str(idx))  # use your mapping
+    print(f"{token:10s} {acc * 100:5.1f}%  (count {per_class_total[idx]})")
+
 # only need to make pass through the mlp for the last word... will need to think
 # about how to do this in the future
-out = transform(torch.tensor(bow.codify("Alice was beginning")).unsqueeze(0))
+out = transform(bow.codify("Alice was beginning").unsqueeze(0))
 output = out["output"]  # Get the output from the model
 print("Output shape:", output.shape)  # Print the shape of the output
 # the last ouput is the prediction for the next word

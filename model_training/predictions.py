@@ -50,7 +50,7 @@ for i in range(10):
     output = transform(vector.unsqueeze(0))
     out = np.argmax(output["output"][0, -1, 1:].detach().numpy())
     index_to_word = {i: w for w, i in bow.word_to_index.items()}
-    predicted_word = index_to_word[out]
+    predicted_word = index_to_word[int(out)]
     print(
         "Predicted word:", predicted_word, " Out:", out
     )  # Print the predicted word

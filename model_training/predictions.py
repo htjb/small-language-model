@@ -41,16 +41,26 @@ transform.load_state_dict(
     state_dict
 )  # Load the state dictionary into the model
 
-test_phrase = "Alice was beginning"  # Define a test phrase
+test_phrase = (
+    "when she thought it over afterwards, "
+    + "it occurred to her that she ought to have wondered at this, but at the "
+    + "time it all seemed quite natural"
+)  # Define a test phrase
 # only need to make pass through the mlp for the last word... will need to think
 # about how to do this in the future
 
 index_to_word = {i: w for w, i in bow.word_to_index.items()}
-vector = bow.codify(test_phrase)
-while vector[-1] != bow.word_to_index["EOS"]:
+vector = bow.codify(test_phrase)[:-1]
+print(vector)
+print(bow.word_to_index["EOS"])
+while (
+    vector[-1] != bow.word_to_index["EOS"]
+    and len(vector) < hyperparameters["context_window_size"]
+):
     output = transform(vector.unsqueeze(0))
     out = np.argmax(output["output"][0, -1, 1:].detach().numpy())
     predicted_word = index_to_word[int(out)]
+
     vector = torch.cat(
         (vector, torch.tensor([out])), dim=0
     )  # Append the predicted word to the vector

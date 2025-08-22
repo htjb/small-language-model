@@ -16,10 +16,12 @@ class bag_of_words:
         # [] represents a set, ^ negates the set, \w matches word characters, \s matches whitespace characters
         # so [^\w\s] matches any character that is not a word character or whitespace
         tokenized = [re.findall(r"\w+|[^\w\s]", line) for line in text]
+        print(tokenized[0])  # Print the first 5 tokenized lines
 
         # flatten and get unique tokens
         words = np.unique(np.concatenate(tokenized))
         words = np.append(words, "UNK")
+        words = np.append(words, "EOS")
 
         self.word_to_index = {word: i + 1 for i, word in enumerate(words)}
 
@@ -27,15 +29,28 @@ class bag_of_words:
         """
         Convert a line of text into a bag-of-words representation.
         """
-        line = line.strip().lower()  # Clean the input line
-        words = line.split()
-        words = [re.sub(r"[^\w\s]", "", word) for word in words]
+        # remove leading/trailing whitespace
+        line = line.strip()
+        words = re.findall(r"\w+|[^\w\s]", line)
         # look up the index of each word in the mapping
         # unkonwn words will be mapped to UNK
+
+        # insert EOS after ., !, ?
+        new_tokens = []
+        for w in words:
+            new_tokens.append(w)
+            if w in [".", "!", "?"]:
+                new_tokens.append("EOS")
+
+        # ensure the sequence always ends with EOS
+        if not new_tokens or new_tokens[-1] != "EOS":
+            new_tokens.append("EOS")
+
         indices = torch.tensor(
             [
-                self.word_to_index.get(word, self.word_to_index["UNK"])
-                for word in words
+                self.word_to_index.get(tok, self.word_to_index["UNK"])
+                for tok in new_tokens
             ]
         )
+
         return indices

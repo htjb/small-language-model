@@ -45,15 +45,16 @@ test_phrase = "Alice was beginning"  # Define a test phrase
 # only need to make pass through the mlp for the last word... will need to think
 # about how to do this in the future
 
+index_to_word = {i: w for w, i in bow.word_to_index.items()}
 vector = bow.codify(test_phrase)
-for i in range(10):
+while vector[-1] != bow.word_to_index["EOS"]:
     output = transform(vector.unsqueeze(0))
     out = np.argmax(output["output"][0, -1, 1:].detach().numpy())
-    index_to_word = {i: w for w, i in bow.word_to_index.items()}
     predicted_word = index_to_word[int(out)]
-    print(
-        "Predicted word:", predicted_word, " Out:", out
-    )  # Print the predicted word
     vector = torch.cat(
         (vector, torch.tensor([out])), dim=0
     )  # Append the predicted word to the vector
+
+print(
+    " ".join([index_to_word[int(i)] for i in vector[:-1]])
+)  # Print the result

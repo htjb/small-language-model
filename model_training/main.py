@@ -8,7 +8,7 @@ import yaml
 from sklearn.model_selection import (  # Import train_test_split for splitting data
     train_test_split,
 )
-from slm.bag_of_words import bag_of_words  # Import the bag_of_words class
+from slm.byte_pair_encoding import bpe  # Import the bpe class
 from slm.networks import Transformer  # Import the Embedding class
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import (  # Import Dataset and DataLoader for handling data
@@ -38,7 +38,7 @@ def step(
     return loss, output, target_seq
 
 
-batch_size = 128  # Define the batch size
+batch_size = 512  # Define the batch size
 embedding_size = 512  # Define the embedding size
 mlp_layers = 1  # Define the number of MLP layers
 mlp_dim = 512  # Define the MLP dimension
@@ -58,12 +58,14 @@ hyperparameters = {
 
 files = [
     "data/alice-in-wonderland.txt",
-    "data/pride-and-prejudice.txt",
+    # "data/pride-and-prejudice.txt",
 ]
-bow = bag_of_words(files)
+# vocab_model = bag_of_words(files)
+vocab_model = bpe(files, num_merges=200)
+print("Vocabulary size:", len(vocab_model.word_to_index))
 
 transform = Transformer(
-    vocab_size=len(bow.word_to_index) + 1,
+    vocab_size=len(vocab_model.word_to_index) + 1,
     embedding_dim=embedding_size,
     mlp_layers=mlp_layers,
     mlp_dim=mlp_dim,
@@ -78,8 +80,8 @@ for f in files:
         text.append(file.readlines())  # Read the text file line by line
 text = np.concatenate(text)
 
-# Assume bow.codify(t) returns a 1D LongTensor for each text
-codified_texts = [bow.codify(t) for t in text if t.strip()]
+# Assume vocab_model.codify(t) returns a 1D LongTensor for each text
+codified_texts = [vocab_model.codify(t) for t in text if t.strip()]
 
 # Train/test/val split
 train, test = train_test_split(codified_texts, test_size=0.2, random_state=42)
@@ -118,8 +120,8 @@ test_dataloader = DataLoader(
     test, batch_size=batch_size, shuffle=False, collate_fn=collate_batch
 )
 
-weights = 1.0 / (bow.freqs + 1e-6)  # Inverse frequency weighting
-weights = weights / weights.sum()  # * (len(bow.word_to_index) + 1)
+weights = 1.0 / (vocab_model.freqs + 1e-6)  # Inverse frequency weighting
+weights = weights / weights.sum()  # * (len(vocab_model.word_to_index) + 1)
 
 # prepend a zero for the PAD class
 pad_weight = torch.tensor([0.0])
@@ -212,7 +214,9 @@ with torch.no_grad():
     print(
         f"Correct: {correct}, Incorrect: {total - correct}"
     )  # Print the number of correct and incorrect predictions
-print("Vocabulary size:", len(bow.word_to_index))  # Print the vocabulary size
+print(
+    "Vocabulary size:", len(vocab_model.word_to_index)
+)  # Print the vocabulary size
 
 plt.scatter(truth, predictions, alpha=0.1)
 plt.xlabel("True Index")
@@ -242,16 +246,16 @@ print(f"Macro Accuracy: {macro_acc * 100:.2f}%")
 
 # If you have your index_to_word mapping:
 for idx, acc in sorted(per_class_acc.items(), key=lambda x: -x[1]):
-    token = bow.index_to_word.get(idx, str(idx))  # use your mapping
+    token = vocab_model.index_to_word.get(idx, str(idx))  # use your mapping
     print(f"{token:10s} {acc * 100:5.1f}%  (count {per_class_total[idx]})")
 
 # only need to make pass through the mlp for the last word... will need to think
 # about how to do this in the future
-out = transform(bow.codify("Alice was beginning").unsqueeze(0))
+out = transform(vocab_model.codify("Alice was beginning").unsqueeze(0))
 output = out["output"]  # Get the output from the model
 print("Output shape:", output.shape)  # Print the shape of the output
 # the last ouput is the prediction for the next word
 output = np.argmax(output[0, -1, 1:].detach().numpy())
-index_to_word = {i: w for w, i in bow.word_to_index.items()}
+index_to_word = {i: w for w, i in vocab_model.word_to_index.items()}
 predicted_word = index_to_word[int(output)]
 print("Predicted words:", predicted_word)  # Print the predicted words

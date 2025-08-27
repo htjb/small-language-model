@@ -56,7 +56,11 @@ hyperparameters = {
     "entropy": entropy,
 }
 
-bow = bag_of_words()
+files = [
+    "data/alice-in-wonderland.txt",
+    "data/pride-and-prejudice.txt",
+]
+bow = bag_of_words(files)
 
 transform = Transformer(
     vocab_size=len(bow.word_to_index) + 1,
@@ -68,8 +72,11 @@ transform = Transformer(
     entropy=entropy,
 )  # Create an instance of the Transformer class
 
-with open("alice-in-wonderland.txt", "r") as file:
-    text = file.readlines()  # Read the text file line by line
+text = []
+for f in files:
+    with open(f, "r") as file:
+        text.append(file.readlines())  # Read the text file line by line
+text = np.concatenate(text)
 
 # Assume bow.codify(t) returns a 1D LongTensor for each text
 codified_texts = [bow.codify(t) for t in text if t.strip()]
@@ -177,8 +184,8 @@ for epoch in pbar:  # Number of epochs
 if best_model is not None:
     transform.load_state_dict(best_model)  # Load the best model
 
-torch.save(transform.state_dict(), "alice_in_wonderland_model.pth")
-with open("alice_in_wonderland_hyperparameters.yaml", "w") as f:
+torch.save(transform.state_dict(), "classic_books_model.pth")
+with open("classic_books_hyperparameters.yaml", "w") as f:
     yaml.dump(hyperparameters, f)  # Save hyperparameters to a YAML file
 
 transform.eval()  # Set the model to evaluation mode

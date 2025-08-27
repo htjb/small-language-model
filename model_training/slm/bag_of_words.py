@@ -7,10 +7,13 @@ import torch
 
 class bag_of_words:
     def __init__(self, files):
-        text = []  # Initialize an empty list to hold the text lines
+        text = []
         for f in files:
             with open(f, "r") as file:
-                text = file.readlines()  # Read the text file line by line
+                text.append(
+                    file.readlines()
+                )  # Read the text file line by line
+        text = np.concatenate(text)
 
         # tokenize into words + punctuation
         # | is or operator in regex

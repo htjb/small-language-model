@@ -4,8 +4,8 @@ import yaml
 from slm.byte_pair_encoding import bpe  # Import the bpe class
 from slm.networks import Transformer  # Import the Embedding class
 
-np.random.seed(0)
-torch.manual_seed(0)
+np.random.seed(42)
+torch.manual_seed(42)
 
 
 def step(
@@ -25,7 +25,7 @@ hyperparameters = yaml.safe_load(
 
 files = [
     "data/alice-in-wonderland.txt",
-    # "data/pride-and-prejudice.txt",
+    "data/pride-and-prejudice.txt",
 ]
 # vocab_model = bag_of_words(files)
 vocab_model = bpe(files, num_merges=200)
@@ -49,31 +49,44 @@ transform.load_state_dict(
     state_dict
 )  # Load the state dictionary into the model
 
-test_phrase = "Alice was beginning"  # Define a test phrase
+test_phrase = "Alice was "  # Define a test phrase
 # only need to make pass through the mlp for the last word... will need to think
 # about how to do this in the future
 
-index_to_word = {i: w for w, i in vocab_model.word_to_index.items()}
 vector = vocab_model.codify(test_phrase)[:-1]
-print(vector)
-print(vocab_model.word_to_index["EOS"])
-print(len(vocab_model.word_to_index))
+
+out = None
+
 while (
     vector[-1] != vocab_model.word_to_index["EOS"]
     and len(vector) < hyperparameters["context_window_size"]
 ):
     output = transform(vector.unsqueeze(0))
-    out = np.random.choice(
-        a=np.arange(len(output["output"][0, -1, 1:].detach().numpy())),
-        p=torch.nn.functional.softmax(output["output"][0, -1, 1:], dim=0)
+    output[0, -1, 0] = -float("Inf")  # zero out PAD class
+
+    probs = (
+        torch.nn.functional.softmax(output["output"][0, -1, :], dim=0)
         .detach()
-        .numpy(),
+        .numpy()
     )
+
+    if out is not None:
+        probs[int(out)] = 0  # zero out the previous word
+
+    # optional: top-k sampling
+    k = 5
+    top_k_indices = probs.argsort()[-k:]
+    top_k_probs = probs[top_k_indices]
+    top_k_probs /= top_k_probs.sum()  # normalize
+    out = np.random.choice(top_k_indices, p=top_k_probs)
+
     vector = torch.cat(
-        (vector, torch.tensor([int(out + 1)])), dim=0
+        (vector, torch.tensor([int(out)])), dim=0
     )  # Append the predicted word to the vector
 
 if type(vocab_model) is bpe:
-    print("".join([index_to_word[int(i)] for i in vector]))  # Print the result
+    print(
+        "".join([vocab_model.index_to_word[int(i)] for i in vector])
+    )  # Print the result
 else:
-    print(" ".join([index_to_word[int(i)] for i in vector]))
+    print(" ".join([vocab_model.index_to_word[int(i)] for i in vector]))

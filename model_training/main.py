@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
@@ -44,7 +45,7 @@ mlp_layers = 1  # Define the number of MLP layers
 mlp_dim = 256  # Define the MLP dimension
 context_window_size = 1024  # Define the context window size
 nheads = 2
-entropy = True
+entropy = False
 
 hyperparameters = {
     "embedding_size": embedding_size,
@@ -121,7 +122,7 @@ test_dataloader = DataLoader(
 )
 
 weights = 1.0 / (vocab_model.freqs + 1e-6)  # Inverse frequency weighting
-weights = weights / weights.sum()  # * (len(vocab_model.word_to_index) + 1)
+weights = weights / weights.sum() * (len(vocab_model.word_to_index) + 1)
 
 # prepend a zero for the PAD class
 pad_weight = torch.tensor([0.0])
@@ -190,6 +191,7 @@ torch.save(transform.state_dict(), "classic_books_model.pth")
 with open("classic_books_hyperparameters.yaml", "w") as f:
     yaml.dump(hyperparameters, f)  # Save hyperparameters to a YAML file
 
+logging.basicConfig(filename="classic_books.log", level=logging.INFO)
 transform.eval()  # Set the model to evaluation mode
 with torch.no_grad():
     test_loss = 0.0
@@ -209,14 +211,13 @@ with torch.no_grad():
         truth.extend(target.masked_select(mask).tolist())
         predictions.extend(pred.masked_select(mask).tolist())
     test_loss /= len(test_dataloader)  # Average test loss
-    print(f"Test Loss: {test_loss}")  # Print the test loss
-    print(f"Accuracy: {correct / (total) * 100:.2f}%")  # Print the accuracy
-    print(
+    logging.info(f"Test Loss: {test_loss}")  # Log the test loss
+    logging.info(
+        f"Accuracy: {correct / (total) * 100:.2f}%"
+    )  # Log the accuracy
+    logging.info(
         f"Correct: {correct}, Incorrect: {total - correct}"
-    )  # Print the number of correct and incorrect predictions
-print(
-    "Vocabulary size:", len(vocab_model.word_to_index)
-)  # Print the vocabulary size
+    )  # Log the number of correct and incorrect predictions
 
 plt.scatter(truth, predictions, alpha=0.1)
 plt.xlabel("True Index")
@@ -242,12 +243,14 @@ for cls in per_class_total:
 # Macro accuracy: average across tokens
 macro_acc = sum(per_class_acc.values()) / len(per_class_acc)
 
-print(f"Macro Accuracy: {macro_acc * 100:.2f}%")
+logging.info(f"Macro Accuracy: {macro_acc * 100:.2f}%")
 
 # If you have your index_to_word mapping:
 for idx, acc in sorted(per_class_acc.items(), key=lambda x: -x[1]):
     token = vocab_model.index_to_word.get(idx, str(idx))  # use your mapping
-    print(f"{token:10s} {acc * 100:5.1f}%  (count {per_class_total[idx]})")
+    logging.info(
+        f"{token:10s} {acc * 100:5.1f}%  (count {per_class_total[idx]})"
+    )
 
 out = transform(vocab_model.codify("Alice was beginning").unsqueeze(0))
 output = out["output"]  # Get the output from the model

@@ -39,9 +39,9 @@ def step(
 
 
 batch_size = 512  # Define the batch size
-embedding_size = 512  # Define the embedding size
+embedding_size = 256  # Define the embedding size
 mlp_layers = 1  # Define the number of MLP layers
-mlp_dim = 512  # Define the MLP dimension
+mlp_dim = 256  # Define the MLP dimension
 context_window_size = 1024  # Define the context window size
 nheads = 2
 entropy = True
@@ -249,13 +249,10 @@ for idx, acc in sorted(per_class_acc.items(), key=lambda x: -x[1]):
     token = vocab_model.index_to_word.get(idx, str(idx))  # use your mapping
     print(f"{token:10s} {acc * 100:5.1f}%  (count {per_class_total[idx]})")
 
-# only need to make pass through the mlp for the last word... will need to think
-# about how to do this in the future
 out = transform(vocab_model.codify("Alice was beginning").unsqueeze(0))
 output = out["output"]  # Get the output from the model
 print("Output shape:", output.shape)  # Print the shape of the output
 # the last ouput is the prediction for the next word
 output = np.argmax(output[0, -1, 1:].detach().numpy())
-index_to_word = {i: w for w, i in vocab_model.word_to_index.items()}
-predicted_word = index_to_word[int(output)]
+predicted_word = vocab_model.index_to_word[int(output + 1)]
 print("Predicted words:", predicted_word)  # Print the predicted words

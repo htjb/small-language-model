@@ -1,8 +1,11 @@
 import numpy as np
 import torch
 import yaml
-from slm.bag_of_words import bag_of_words  # Import the bag_of_words class
+from slm.byte_pair_encoding import bpe  # Import the bpe class
 from slm.networks import Transformer  # Import the Embedding class
+
+np.random.seed(0)
+torch.manual_seed(0)
 
 
 def step(
@@ -17,13 +20,18 @@ def step(
 
 
 hyperparameters = yaml.safe_load(
-    open("alice_in_wonderland_hyperparameters.yaml", "r")
+    open("classic_books_hyperparameters.yaml", "r")
 )
 
-bow = bag_of_words()
+files = [
+    "data/alice-in-wonderland.txt",
+    # "data/pride-and-prejudice.txt",
+]
+# vocab_model = bag_of_words(files)
+vocab_model = bpe(files, num_merges=200)
 
 transform = Transformer(
-    vocab_size=len(bow.word_to_index) + 1,
+    vocab_size=len(vocab_model.word_to_index) + 1,
     embedding_dim=hyperparameters["embedding_size"],
     mlp_layers=hyperparameters["mlp_layers"],
     mlp_dim=hyperparameters["mlp_dim"],
@@ -34,37 +42,38 @@ transform = Transformer(
 )  # Create an instance of the Transformer class
 
 state_dict = torch.load(
-    "alice_in_wonderland_model.pth", map_location=torch.device("cpu")
+    "classic_books_model.pth", map_location=torch.device("cpu")
 )  # Load the state dictionary
 
 transform.load_state_dict(
     state_dict
 )  # Load the state dictionary into the model
 
-test_phrase = (
-    "when she thought it over afterwards, "
-    + "it occurred to her that she ought to have wondered at this, but at the "
-    + "time it all seemed quite natural"
-)  # Define a test phrase
+test_phrase = "Alice was beginning"  # Define a test phrase
 # only need to make pass through the mlp for the last word... will need to think
 # about how to do this in the future
 
-index_to_word = {i: w for w, i in bow.word_to_index.items()}
-vector = bow.codify(test_phrase)[:-1]
+index_to_word = {i: w for w, i in vocab_model.word_to_index.items()}
+vector = vocab_model.codify(test_phrase)[:-1]
 print(vector)
-print(bow.word_to_index["EOS"])
+print(vocab_model.word_to_index["EOS"])
+print(len(vocab_model.word_to_index))
 while (
-    vector[-1] != bow.word_to_index["EOS"]
+    vector[-1] != vocab_model.word_to_index["EOS"]
     and len(vector) < hyperparameters["context_window_size"]
 ):
     output = transform(vector.unsqueeze(0))
-    out = np.argmax(output["output"][0, -1, 1:].detach().numpy())
-    predicted_word = index_to_word[int(out)]
-
+    out = np.random.choice(
+        a=np.arange(len(output["output"][0, -1, 1:].detach().numpy())),
+        p=torch.nn.functional.softmax(output["output"][0, -1, 1:], dim=0)
+        .detach()
+        .numpy(),
+    )
     vector = torch.cat(
-        (vector, torch.tensor([out])), dim=0
+        (vector, torch.tensor([int(out + 1)])), dim=0
     )  # Append the predicted word to the vector
 
-print(
-    " ".join([index_to_word[int(i)] for i in vector[:-1]])
-)  # Print the result
+if type(vocab_model) is bpe:
+    print("".join([index_to_word[int(i)] for i in vector]))  # Print the result
+else:
+    print(" ".join([index_to_word[int(i)] for i in vector]))

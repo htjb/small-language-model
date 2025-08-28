@@ -49,13 +49,13 @@ transform.load_state_dict(
     state_dict
 )  # Load the state dictionary into the model
 
-test_phrase = "Alice was "  # Define a test phrase
+test_phrase = "how are you today"  # Define a test phrase
 # only need to make pass through the mlp for the last word... will need to think
 # about how to do this in the future
 
-vector = vocab_model.codify(test_phrase)[:-1]
+vector = vocab_model.codify(test_phrase)  # [:-1]
 
-out = None
+print(vector)
 
 while (
     vector[-1] != vocab_model.word_to_index["EOS"]

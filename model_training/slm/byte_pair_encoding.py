@@ -75,8 +75,6 @@ class bpe:
                     codified.append("UNK")
             if i < len(tokenized) - 1:
                 codified.append(" ")
-        if not codified or codified[-1] != "EOS":
-            codified.append("EOS")
 
         counter = Counter(codified)
         self.freqs = torch.tensor(
@@ -115,8 +113,6 @@ class bpe:
                     codified.append("UNK")
             if i < len(tokenized) - 1:
                 codified.append(" ")
-        if not codified or codified[-1] != "EOS":
-            codified.append("EOS")
 
         indices = torch.tensor(
             [

@@ -25,7 +25,7 @@ hyperparameters = yaml.safe_load(
 
 files = [
     "data/alice-in-wonderland.txt",
-    "data/pride-and-prejudice.txt",
+    # "data/pride-and-prejudice.txt",
 ]
 # vocab_model = bag_of_words(files)
 vocab_model = bpe(files, num_merges=200)
@@ -70,8 +70,7 @@ while (
         .numpy()
     )
 
-    if out is not None:
-        probs[int(out)] = 0  # zero out the previous word
+    probs[int(vector[-1])] = 0  # zero out the previous word
 
     # optional: top-k sampling
     k = 5

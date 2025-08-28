@@ -1,4 +1,6 @@
 import logging
+import os
+import pickle
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
@@ -39,13 +41,21 @@ def step(
     return loss, output, target_seq
 
 
-batch_size = 512  # Define the batch size
+batch_size = 16  # Define the batch size
 embedding_size = 256  # Define the embedding size
-mlp_layers = 1  # Define the number of MLP layers
-mlp_dim = 256  # Define the MLP dimension
+mlp_layers = 5  # Define the number of MLP layers
+mlp_dim = 64  # Define the MLP dimension
 context_window_size = 1024  # Define the context window size
-nheads = 2
+nheads = 3
 entropy = False
+
+if os.path.exists("classic_books.log"):
+    os.remove("classic_books.log")
+
+logging.basicConfig(
+    filename="classic_books.log",
+    level=logging.INFO,
+)
 
 hyperparameters = {
     "embedding_size": embedding_size,
@@ -59,11 +69,15 @@ hyperparameters = {
 
 files = [
     "data/alice-in-wonderland.txt",
-    # "data/pride-and-prejudice.txt",
+    "data/pride-and-prejudice.txt",
+    "data/the-great-gatsby.txt",
+    "data/the-war-of-the-worlds.txt",
 ]
 # vocab_model = bag_of_words(files)
 vocab_model = bpe(files, num_merges=200)
-print("Vocabulary size:", len(vocab_model.word_to_index))
+with open("classic_books_vocab.pkl", "wb") as f:
+    pickle.dump(vocab_model, f)
+logging.info(f"Vocabulary size: {len(vocab_model.word_to_index)}")
 
 transform = Transformer(
     vocab_size=len(vocab_model.word_to_index) + 1,
@@ -75,6 +89,9 @@ transform = Transformer(
     entropy=entropy,
 )  # Create an instance of the Transformer class
 
+number_of_parameters = sum([p.numel() for p in transform.parameters()])
+print("Number of paraemters: " + str(number_of_parameters))
+logging.info(f"Number of Model Parameters: {number_of_parameters}")
 text = []
 for f in files:
     with open(f, "r") as file:
@@ -84,7 +101,7 @@ text = np.concatenate(text)
 # Assume vocab_model.codify(t) returns a 1D LongTensor for each text
 codified_texts = [vocab_model.codify(t) for t in text if t.strip()]
 
-# Train/test/val split
+# Train/test/val split shuffles by default
 train, test = train_test_split(codified_texts, test_size=0.2, random_state=42)
 test, val = train_test_split(test, test_size=0.5, random_state=42)
 
@@ -191,7 +208,6 @@ torch.save(transform.state_dict(), "classic_books_model.pth")
 with open("classic_books_hyperparameters.yaml", "w") as f:
     yaml.dump(hyperparameters, f)  # Save hyperparameters to a YAML file
 
-logging.basicConfig(filename="classic_books.log", level=logging.INFO)
 transform.eval()  # Set the model to evaluation mode
 with torch.no_grad():
     test_loss = 0.0

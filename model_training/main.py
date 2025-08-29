@@ -27,6 +27,8 @@ elif torch.backends.mps.is_available():  # for mac with m1 chip
 else:
     device = torch.device("cpu")
 
+print(f"Using device: {device}")
+
 
 def step(
     batch: torch.Tensor,
@@ -80,8 +82,19 @@ files = [
     "data/the-great-gatsby.txt",
     "data/the-war-of-the-worlds.txt",
 ]
+
+text = []
+for f in files:
+    with open(f, "r") as file:
+        text.append(file.readlines())  # Read the text file line by line
+text = np.concatenate(text)
+
+# Train/test/val split shuffles by default
+train, test = train_test_split(text, test_size=0.2, random_state=42)
+test, val = train_test_split(test, test_size=0.5, random_state=42)
+
 # vocab_model = bag_of_words(files)
-vocab_model = bpe(files, num_merges=200)
+vocab_model = bpe(train, num_merges=200)
 with open("classic_books_vocab.pkl", "wb") as f:
     pickle.dump(vocab_model, f)
 logging.info(f"Vocabulary size: {len(vocab_model.word_to_index)}")
@@ -99,18 +112,11 @@ transform = Transformer(
 number_of_parameters = sum([p.numel() for p in transform.parameters()])
 print("Number of paraemters: " + str(number_of_parameters))
 logging.info(f"Number of Model Parameters: {number_of_parameters}")
-text = []
-for f in files:
-    with open(f, "r") as file:
-        text.append(file.readlines())  # Read the text file line by line
-text = np.concatenate(text)
 
 # Assume vocab_model.codify(t) returns a 1D LongTensor for each text
-codified_texts = [vocab_model.codify(t) for t in text if t.strip()]
-
-# Train/test/val split shuffles by default
-train, test = train_test_split(codified_texts, test_size=0.2, random_state=42)
-test, val = train_test_split(test, test_size=0.5, random_state=42)
+train = [vocab_model.codify(t) for t in train if t.strip()]
+val = [vocab_model.codify(t) for t in val if t.strip()]
+test = [vocab_model.codify(t) for t in test if t.strip()]
 
 
 # Collate function: pad within a batch
@@ -288,10 +294,13 @@ for idx, acc in sorted(per_class_acc.items(), key=lambda x: -x[1]):
         f"{token:10s} {acc * 100:5.1f}%  (count {per_class_total[idx]})"
     )
 
-out = transform(vocab_model.codify("Alice was beginning").unsqueeze(0))
+out = transform(
+    vocab_model.codify("Alice was beginning").unsqueeze(0).to(device)
+)
 output = out["output"]  # Get the output from the model
 print("Output shape:", output.shape)  # Print the shape of the output
 # the last ouput is the prediction for the next word
-output = np.argmax(output[0, -1, 1:].detach().numpy())
+output = output.detach().cpu().numpy()
+output = np.argmax(output[0, -1, 1:])
 predicted_word = vocab_model.index_to_word[int(output + 1)]
 print("Predicted words:", predicted_word)  # Print the predicted words

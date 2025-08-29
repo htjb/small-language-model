@@ -1,7 +1,7 @@
+import glob
 import logging
 import os
 import pickle
-from collections import defaultdict
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -76,12 +76,10 @@ hyperparameters = {
     "entropy": entropy,
 }
 
-files = [
-    "data/alice-in-wonderland.txt",
-    "data/pride-and-prejudice.txt",
-    "data/the-great-gatsby.txt",
-    "data/the-war-of-the-worlds.txt",
-]
+files = glob.glob(
+    "data/*.txt"
+)  # Get list of all text files in the data directory
+# files = ['data/alice-in-wonderland.txt']
 
 text = []
 for f in files:
@@ -95,6 +93,8 @@ test, val = train_test_split(test, test_size=0.5, random_state=42)
 
 # vocab_model = bag_of_words(files)
 vocab_model = bpe(train, num_merges=200)
+print(f"Number of tokens: {sum(vocab_model.freqs)}")
+logging.info(f"Number of tokens: {sum(vocab_model.freqs)}")
 with open("classic_books_vocab.pkl", "wb") as f:
     pickle.dump(vocab_model, f)
 logging.info(f"Vocabulary size: {len(vocab_model.word_to_index)}")
@@ -169,38 +169,32 @@ best_model = None  # Placeholder for the best model
 patience_counter = 0  # Initialize patience counter
 patience = 50
 
-pbar = tqdm(range(200), desc="Training Progress")  # Initialize progress bar
+pbar = tqdm(range(10), desc="Training Progress")  # Initialize progress bar
 
 for epoch in pbar:  # Number of epochs
     optimizer.zero_grad()
     total_loss = 0.0
-    n_tokens = 0
     for vector in train_dataloader:
         optimizer.zero_grad()
         vector = vector.to(device)
         loss, _, _ = step(
             vector, transform, criterion, entropy
         )  # Perform a training step
+        # loss already deals with padding
         total_loss += loss.item()
-        n_tokens += vector.numel()  # total tokens (batch_size * seq_len)
         loss.backward()
         optimizer.step()
-    avg_loss = total_loss / n_tokens
+    avg_loss = total_loss / len(train_dataloader)
 
     val_loss = 0.0
-    n_tokens = 0
     with torch.no_grad():
         for vector in val_dataloader:
             vector = vector.to(device)
             loss, _, _ = step(
                 vector, transform, criterion, entropy
             )  # Perform a validation step
-            batch_tokens = (
-                vector.numel()
-            )  # total tokens (batch_size * seq_len)
-            val_loss += loss.item() * batch_tokens
-            n_tokens += batch_tokens
-    val_loss /= n_tokens
+            val_loss += loss.item()
+    val_loss /= len(val_dataloader)
 
     if val_loss < best_loss:
         best_loss = val_loss
@@ -231,35 +225,33 @@ torch.save(transform.state_dict(), "classic_books_model.pth")
 with open("classic_books_hyperparameters.yaml", "w") as f:
     yaml.dump(hyperparameters, f)  # Save hyperparameters to a YAML file
 
-transform.eval()  # Set the model to evaluation mode
+transform.eval()
+total_loss = 0.0
+total_tokens = 0
+correct, total_correctable = 0, 0
+
 with torch.no_grad():
-    test_loss = 0.0
-    n_tokens = 0
-    correct, total = 0, 0
     truth, predictions = [], []
     for vector in test_dataloader:
         vector = vector.to(device)
         loss, output, target = step(vector, transform, criterion, entropy)
-        # output: [batch, seq_len, vocab_size+1]
-        output[:, :, 0] = float("-inf")  # make pad impossible to predict
-        pred = torch.argmax(output, dim=2)  # [batch, seq_len]
+        output[:, :, 0] = float("-inf")  # prevent pad prediction
+        pred = torch.argmax(output, dim=2)
 
-        # Mask positions where target == 0 (padding)
         mask = target != 0
         correct += (pred == target).masked_select(mask).sum().item()
-        total += mask.sum().item()
-        test_loss += loss.item()
-        n_tokens += vector.numel()
-        truth.extend(target.masked_select(mask).tolist())
-        predictions.extend(pred.masked_select(mask).tolist())
-    test_loss /= n_tokens
-    logging.info(f"Test Loss: {test_loss}")  # Log the test loss
-    logging.info(
-        f"Accuracy: {correct / (total) * 100:.2f}%"
-    )  # Log the accuracy
-    logging.info(
-        f"Correct: {correct}, Incorrect: {total - correct}"
-    )  # Log the number of correct and incorrect predictions
+        total_correctable += mask.sum().item()
+
+        # sum loss weighted by number of non-pad tokens
+        total_loss += (loss * mask.sum()).item()
+        total_tokens += mask.sum().item()
+        truth.extend(target.masked_select(mask).cpu().tolist())
+        predictions.extend(pred.masked_select(mask).cpu().tolist())
+
+per_token_loss = total_loss / total_tokens
+perplexity = torch.exp(torch.tensor(per_token_loss))
+logging.info(f"Test Perplexity: {perplexity}")
+logging.info(f"Token Accuracy: {correct / total_correctable * 100:.2f}%")
 
 plt.scatter(truth, predictions, alpha=0.1)
 plt.xlabel("True Index")
@@ -267,32 +259,6 @@ plt.ylabel("Predicted Index")
 plt.title("True vs Predicted Word Indices")
 plt.savefig("true_vs_predicted_indices.png")
 plt.show()
-
-# Count per-class totals and corrects
-per_class_correct = defaultdict(int)
-per_class_total = defaultdict(int)
-
-for t, p in zip(truth, predictions):
-    per_class_total[t] += 1
-    if t == p:
-        per_class_correct[t] += 1
-
-# Compute per-class accuracy
-per_class_acc = {}
-for cls in per_class_total:
-    per_class_acc[cls] = per_class_correct[cls] / per_class_total[cls]
-
-# Macro accuracy: average across tokens
-macro_acc = sum(per_class_acc.values()) / len(per_class_acc)
-
-logging.info(f"Macro Accuracy: {macro_acc * 100:.2f}%")
-
-# If you have your index_to_word mapping:
-for idx, acc in sorted(per_class_acc.items(), key=lambda x: -x[1]):
-    token = vocab_model.index_to_word.get(idx, str(idx))  # use your mapping
-    logging.info(
-        f"{token:10s} {acc * 100:5.1f}%  (count {per_class_total[idx]})"
-    )
 
 out = transform(
     vocab_model.codify("Alice was beginning").unsqueeze(0).to(device)

@@ -71,7 +71,7 @@ class Transformer(nn.Module):
         self.layers.append(nn.Linear(mlp_dim, vocab_size))
 
     def forward(self, x):
-        embedding = self.embedding(x) + self.pos_enc[: x.size(1)]
+        embedding = self.embedding(x) + self.pos_enc[: x.size(1)].to(x.device)
         embedding = self.layer_norm(embedding)
 
         # Create padding mask: True where pad tokens are
@@ -90,7 +90,9 @@ class Transformer(nn.Module):
 
             # Causal mask
             seq_len = x.size(1)
-            causal_mask = torch.tril(torch.ones(seq_len, seq_len)).bool()
+            causal_mask = torch.tril(
+                torch.ones(seq_len, seq_len, device=x.device)
+            ).bool()
 
             # Combine causal + pad mask
             # pad_mask: [batch, seq_len] -> expand to [batch, 1, seq_len]

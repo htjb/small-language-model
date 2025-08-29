@@ -66,7 +66,8 @@ class bpe:
         for i, word in enumerate(processed_words):
             for subword in word:
                 if subword in [".", "!", "?"]:
-                    codified.pop()
+                    if len(codified) > 0:
+                        codified.pop()
                     codified.append(subword)
                     codified.append("EOS")
                 elif subword in self.vocab:
@@ -104,7 +105,8 @@ class bpe:
         for i, word in enumerate(tokenized):
             for subword in word:
                 if subword in [".", "!", "?"]:
-                    codified.pop()
+                    if len(codified) > 0:
+                        codified.pop()
                     codified.append(subword)
                     codified.append("EOS")
                 elif subword in self.vocab:

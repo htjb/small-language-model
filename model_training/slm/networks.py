@@ -57,12 +57,16 @@ class Transformer(nn.Module):
             self.query.append(nn.Linear(embedding_dim, embedding_dim))
             self.key.append(nn.Linear(embedding_dim, embedding_dim))
             self.value.append(nn.Linear(embedding_dim, embedding_dim))
+            self.query.append(nn.Dropout(0.1))
+            self.key.append(nn.Dropout(0.1))
+            self.value.append(nn.Dropout(0.1))
 
         self.pos_enc = sinusoidal_positional_encoding(
             context_window_size, embedding_dim
         )
 
-        self.layer_norm = nn.LayerNorm(embedding_dim)
+        self.layer_norm_pre_attention = nn.LayerNorm(embedding_dim)
+        self.layer_norm_post_attention = nn.LayerNorm(embedding_dim)
 
         self.layers = nn.ModuleList()
         self.layers.append(nn.Linear(embedding_dim, mlp_dim))
@@ -72,17 +76,20 @@ class Transformer(nn.Module):
 
     def forward(self, x):
         embedding = self.embedding(x) + self.pos_enc[: x.size(1)].to(x.device)
-        embedding = self.layer_norm(embedding)
+        normed_embedding = self.layer_norm_pre_attention(embedding)
 
         # Create padding mask: True where pad tokens are
         pad_mask = x == 0  # shape [batch, seq_len]
 
         attention_head_outputs = []
         attention_head_weights = []
-        for i in range(self.nheads):
-            query = self.query[i](embedding)
-            key = self.key[i](embedding)
-            value = self.value[i](embedding)
+        for i in range(0, self.nheads, 2):
+            query = self.query[i](normed_embedding)
+            key = self.key[i](normed_embedding)
+            value = self.value[i](normed_embedding)
+            query = self.query[i + 1](query)
+            key = self.key[i + 1](key)
+            value = self.value[i + 1](value)
 
             attention_scores = torch.matmul(query, key.transpose(-2, -1)) / (
                 key.size(-1) ** 0.5
@@ -125,7 +132,7 @@ class Transformer(nn.Module):
         x = torch.stack(attention_head_outputs, dim=1).sum(dim=1)
 
         x = x + embedding
-        x = self.layer_norm(x)  # Apply layer normalization
+        x = self.layer_norm_post_attention(x)  # Apply layer normalization
 
         if self.predict:
             x = x[:, -1, :]

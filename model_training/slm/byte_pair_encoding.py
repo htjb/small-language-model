@@ -6,13 +6,7 @@ import torch
 
 
 class bpe:
-    def __init__(self, files, num_merges=1000):
-        text = []
-        for f in files:
-            with open(f, "r") as file:
-                text.append(file.readlines())
-        text = np.concatenate(text)
-
+    def __init__(self, text, num_merges=1000):
         tokenized = [
             re.findall(r"\w+|[^\w\s]", line, flags=re.UNICODE) for line in text
         ]

@@ -168,6 +168,7 @@ pbar = tqdm(range(200), desc="Training Progress")  # Initialize progress bar
 for epoch in pbar:  # Number of epochs
     optimizer.zero_grad()
     total_loss = 0.0
+    n_tokens = 0
     for vector in train_dataloader:
         optimizer.zero_grad()
         vector = vector.to(device)
@@ -175,19 +176,25 @@ for epoch in pbar:  # Number of epochs
             vector, transform, criterion, entropy
         )  # Perform a training step
         total_loss += loss.item()
+        n_tokens += vector.numel()  # total tokens (batch_size * seq_len)
         loss.backward()
         optimizer.step()
-    avg_loss = total_loss / len(train_dataloader)  # Average loss for the epoch
+    avg_loss = total_loss / n_tokens
 
     val_loss = 0.0
+    n_tokens = 0
     with torch.no_grad():
         for vector in val_dataloader:
             vector = vector.to(device)
             loss, _, _ = step(
                 vector, transform, criterion, entropy
             )  # Perform a validation step
-            val_loss += loss.item()
-        val_loss = val_loss / len(val_dataloader)  # Average validation loss
+            batch_tokens = (
+                vector.numel()
+            )  # total tokens (batch_size * seq_len)
+            val_loss += loss.item() * batch_tokens
+            n_tokens += batch_tokens
+    val_loss /= n_tokens
 
     if val_loss < best_loss:
         best_loss = val_loss
@@ -221,6 +228,7 @@ with open("classic_books_hyperparameters.yaml", "w") as f:
 transform.eval()  # Set the model to evaluation mode
 with torch.no_grad():
     test_loss = 0.0
+    n_tokens = 0
     correct, total = 0, 0
     truth, predictions = [], []
     for vector in test_dataloader:
@@ -235,9 +243,10 @@ with torch.no_grad():
         correct += (pred == target).masked_select(mask).sum().item()
         total += mask.sum().item()
         test_loss += loss.item()
+        n_tokens += vector.numel()
         truth.extend(target.masked_select(mask).tolist())
         predictions.extend(pred.masked_select(mask).tolist())
-    test_loss /= len(test_dataloader)  # Average test loss
+    test_loss /= n_tokens
     logging.info(f"Test Loss: {test_loss}")  # Log the test loss
     logging.info(
         f"Accuracy: {correct / (total) * 100:.2f}%"

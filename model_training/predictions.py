@@ -1,3 +1,5 @@
+import pickle
+
 import numpy as np
 import torch
 import yaml
@@ -23,12 +25,7 @@ hyperparameters = yaml.safe_load(
     open("classic_books_hyperparameters.yaml", "r")
 )
 
-files = [
-    "data/alice-in-wonderland.txt",
-    # "data/pride-and-prejudice.txt",
-]
-# vocab_model = bag_of_words(files)
-vocab_model = bpe(files, num_merges=200)
+vocab_model = pickle.load(open("classic_books_vocab.pkl", "rb"))
 
 transform = Transformer(
     vocab_size=len(vocab_model.word_to_index) + 1,
@@ -49,7 +46,7 @@ transform.load_state_dict(
     state_dict
 )  # Load the state dictionary into the model
 
-test_phrase = "how are you today"  # Define a test phrase
+test_phrase = "how are you"  # Define a test phrase
 # only need to make pass through the mlp for the last word... will need to think
 # about how to do this in the future
 
@@ -73,7 +70,7 @@ while (
     probs[int(vector[-1])] = 0  # zero out the previous word
 
     # optional: top-k sampling
-    k = 5
+    k = 10
     top_k_indices = probs.argsort()[-k:]
     top_k_probs = probs[top_k_indices]
     top_k_probs /= top_k_probs.sum()  # normalize
@@ -83,6 +80,7 @@ while (
         (vector, torch.tensor([int(out)])), dim=0
     )  # Append the predicted word to the vector
 
+print([vocab_model.index_to_word[int(i)] for i in vector])
 if type(vocab_model) is bpe:
     print(
         "".join([vocab_model.index_to_word[int(i)] for i in vector])

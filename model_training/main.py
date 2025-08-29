@@ -88,7 +88,7 @@ for f in files:
 text = np.concatenate(text)
 
 # Train/test/val split shuffles by default
-train, test = train_test_split(text, test_size=0.2, random_state=42)
+train, test = train_test_split(text, test_size=0.3, random_state=42)
 test, val = train_test_split(test, test_size=0.5, random_state=42)
 
 # vocab_model = bag_of_words(files)

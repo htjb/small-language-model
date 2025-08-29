@@ -20,6 +20,13 @@ from torch.utils.data import (  # Import Dataset and DataLoader for handling dat
 )
 from tqdm import tqdm  # Import tqdm for progress bar
 
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+elif torch.backends.mps.is_available():  # for mac with m1 chip
+    device = torch.device("mps")
+else:
+    device = torch.device("cpu")
+
 
 def step(
     batch: torch.Tensor,
@@ -87,7 +94,7 @@ transform = Transformer(
     context_window_size=context_window_size,
     nheads=nheads,
     entropy=entropy,
-)  # Create an instance of the Transformer class
+).to(device)  # Create an instance of the Transformer class
 
 number_of_parameters = sum([p.numel() for p in transform.parameters()])
 print("Number of paraemters: " + str(number_of_parameters))
@@ -146,7 +153,7 @@ pad_weight = torch.tensor([0.0])
 weights = torch.cat([pad_weight, weights])
 
 # Define loss function and optimizer
-criterion = torch.nn.CrossEntropyLoss(weight=weights)
+criterion = torch.nn.CrossEntropyLoss(weight=weights.to(device))
 optimizer = optim.AdamW(
     transform.parameters(), lr=1e-4, weight_decay=1e-5
 )  # Use AdamW optimizer
@@ -162,6 +169,8 @@ for epoch in pbar:  # Number of epochs
     optimizer.zero_grad()
     total_loss = 0.0
     for vector in train_dataloader:
+        optimizer.zero_grad()
+        vector = vector.to(device)
         loss, _, _ = step(
             vector, transform, criterion, entropy
         )  # Perform a training step
@@ -173,6 +182,7 @@ for epoch in pbar:  # Number of epochs
     val_loss = 0.0
     with torch.no_grad():
         for vector in val_dataloader:
+            vector = vector.to(device)
             loss, _, _ = step(
                 vector, transform, criterion, entropy
             )  # Perform a validation step
@@ -214,6 +224,7 @@ with torch.no_grad():
     correct, total = 0, 0
     truth, predictions = [], []
     for vector in test_dataloader:
+        vector = vector.to(device)
         loss, output, target = step(vector, transform, criterion, entropy)
         # output: [batch, seq_len, vocab_size+1]
         output[:, :, 0] = float("-inf")  # make pad impossible to predict

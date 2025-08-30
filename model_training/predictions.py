@@ -46,7 +46,7 @@ transform.load_state_dict(
     state_dict
 )  # Load the state dictionary into the model
 
-test_phrase = "how are you"  # Define a test phrase
+test_phrase = "alice was beginning to"  # Define a test phrase
 # only need to make pass through the mlp for the last word... will need to think
 # about how to do this in the future
 
@@ -67,7 +67,8 @@ while (
         .numpy()
     )
 
-    probs[int(vector[-1])] = 0  # zero out the previous word
+    for i in range(2):
+        probs[int(vector[-i])] = 0  # zero out the previous word
 
     # optional: top-k sampling
     k = 10

@@ -54,12 +54,15 @@ class Transformer(nn.Module):
         self.key = nn.ModuleList()
         self.value = nn.ModuleList()
         for _ in range(nheads):
-            self.query.append(nn.Linear(embedding_dim, embedding_dim))
-            self.key.append(nn.Linear(embedding_dim, embedding_dim))
-            self.value.append(nn.Linear(embedding_dim, embedding_dim))
-            self.query.append(nn.Dropout(0.1))
-            self.key.append(nn.Dropout(0.1))
-            self.value.append(nn.Dropout(0.1))
+            self.query.append(
+                nn.Linear(embedding_dim // nheads, embedding_dim // nheads)
+            )
+            self.key.append(
+                nn.Linear(embedding_dim // nheads, embedding_dim // nheads)
+            )
+            self.value.append(
+                nn.Linear(embedding_dim // nheads, embedding_dim // nheads)
+            )
 
         self.pos_enc = sinusoidal_positional_encoding(
             context_window_size, embedding_dim
@@ -76,27 +79,36 @@ class Transformer(nn.Module):
 
     def forward(self, x):
         embedding = self.embedding(x) + self.pos_enc[: x.size(1)].to(x.device)
-        normed_embedding = self.layer_norm_pre_attention(embedding)
+        layer_normed_embedding = self.layer_norm_pre_attention(embedding)
+        normed_embedding = []
+        for i in range(self.nheads):
+            normed_embedding.append(
+                layer_normed_embedding[
+                    :,
+                    :,
+                    (i * layer_normed_embedding.size(2)) // self.nheads : (
+                        (i + 1) * layer_normed_embedding.size(2)
+                    )
+                    // self.nheads,
+                ]
+            )
 
         # Create padding mask: True where pad tokens are
         pad_mask = x == 0  # shape [batch, seq_len]
 
         attention_head_outputs = []
         attention_head_weights = []
-        for i in range(0, self.nheads, 2):
-            query = self.query[i](normed_embedding)
-            key = self.key[i](normed_embedding)
-            value = self.value[i](normed_embedding)
-            query = self.query[i + 1](query)
-            key = self.key[i + 1](key)
-            value = self.value[i + 1](value)
+        for i in range(self.nheads):
+            query = self.query[i](normed_embedding[i])
+            key = self.key[i](normed_embedding[i])
+            value = self.value[i](normed_embedding[i])
 
             attention_scores = torch.matmul(query, key.transpose(-2, -1)) / (
                 key.size(-1) ** 0.5
             )
 
             # Causal mask
-            seq_len = x.size(1)
+            seq_len = normed_embedding[i].size(1)
             causal_mask = torch.tril(
                 torch.ones(seq_len, seq_len, device=x.device)
             ).bool()
@@ -126,10 +138,11 @@ class Transformer(nn.Module):
             entropy = -torch.sum(
                 attention_head_weights
                 * torch.log(attention_head_weights + 1e-8),
-                axis=-1,
+                dim=-1,
             )
             entropy_loss = torch.mean(entropy)
-        x = torch.stack(attention_head_outputs, dim=1).sum(dim=1)
+        # x = torch.stack(attention_head_outputs, dim=1).sum(dim=1)
+        x = torch.cat(attention_head_outputs, dim=-1)
 
         x = x + embedding
         x = self.layer_norm_post_attention(x)  # Apply layer normalization

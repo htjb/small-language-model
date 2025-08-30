@@ -52,10 +52,10 @@ def step(
 
 batch_size = 16  # Define the batch size
 embedding_size = 256  # Define the embedding size
-mlp_layers = 5  # Define the number of MLP layers
-mlp_dim = 64  # Define the MLP dimension
+mlp_layers = 1  # Define the number of MLP layers
+mlp_dim = 256  # Define the MLP dimension
 context_window_size = 1024  # Define the context window size
-nheads = 3
+nheads = 8
 entropy = False
 
 if os.path.exists("classic_books.log"):

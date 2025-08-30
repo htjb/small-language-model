@@ -42,7 +42,9 @@ def step(
 
     out = transform(input_seq)
     output = out["output"]  # Get the output from the model
-    entropy_loss = out["entropy"] if entropy else 0  # Get entropy loss if
+    entropy_loss = (
+        out["entropy"] * 0.25 if entropy else 0
+    )  # Get entropy loss if
     loss = (
         criterion(output.reshape(-1, output.size(-1)), target_seq.reshape(-1))
         - entropy_loss
@@ -56,7 +58,7 @@ mlp_layers = 1  # Define the number of MLP layers
 mlp_dim = 256  # Define the MLP dimension
 context_window_size = 1024  # Define the context window size
 nheads = 8
-entropy = False
+entropy = True
 
 if os.path.exists("classic_books.log"):
     os.remove("classic_books.log")

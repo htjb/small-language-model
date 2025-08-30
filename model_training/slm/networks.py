@@ -135,12 +135,16 @@ class Transformer(nn.Module):
         )  # shape: [batch_size, nheads, seq_len, seq_len]
         # row-wise entropy
         if self.entropy:
-            entropy = -torch.sum(
-                attention_head_weights
-                * torch.log(attention_head_weights + 1e-8),
-                dim=-1,
+            uniform = torch.full_like(attention_head_weights, 1.0 / 
+                        attention_head_weights.size(-1))
+            kl = torch.sum(
+                attention_head_weights * 
+                (torch.log(attention_head_weights + 1e-8) - 
+                torch.log(1.0 / attention_head_weights.size(-1))),
+                dim=-1
             )
-            entropy_loss = torch.mean(entropy)
+            entropy_loss = kl.mean()   # >= 0 and well-scaled
+
         # x = torch.stack(attention_head_outputs, dim=1).sum(dim=1)
         x = torch.cat(attention_head_outputs, dim=-1)
 

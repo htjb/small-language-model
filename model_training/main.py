@@ -43,11 +43,11 @@ def step(
     out = transform(input_seq)
     output = out["output"]  # Get the output from the model
     entropy_loss = (
-        out["entropy"] * 0.25 if entropy else 0
+        out["entropy"] if entropy else 0
     )  # Get entropy loss if
     loss = (
         criterion(output.reshape(-1, output.size(-1)), target_seq.reshape(-1))
-        - entropy_loss
+        + entropy_loss
     )
     return loss, output, target_seq
 

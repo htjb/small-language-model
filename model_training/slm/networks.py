@@ -134,13 +134,13 @@ class Transformer(nn.Module):
             attention_head_weights, dim=1
         )  # shape: [batch_size, nheads, seq_len, seq_len]
         # row-wise entropy
-        if self.entropy:
+        if self.entropy and self.predict is False:
             uniform = torch.full_like(attention_head_weights, 1.0 / 
                         attention_head_weights.size(-1))
             kl = torch.sum(
                 attention_head_weights * 
                 (torch.log(attention_head_weights + 1e-8) - 
-                torch.log(1.0 / attention_head_weights.size(-1))),
+                math.log(1.0 / attention_head_weights.size(-1))),
                 dim=-1
             )
             entropy_loss = kl.mean()   # >= 0 and well-scaled
@@ -170,7 +170,7 @@ class Transformer(nn.Module):
         # Final layer (output projection, no residual)
         x = self.layers[-1](x)
 
-        if self.entropy:
+        if self.entropy and self.predict is False:
             return {
                 "output": x,
                 "entropy": entropy_loss * torch.abs(self.entropy_weight),

@@ -171,7 +171,7 @@ best_model = None  # Placeholder for the best model
 patience_counter = 0  # Initialize patience counter
 patience = 50
 
-pbar = tqdm(range(10), desc="Training Progress")  # Initialize progress bar
+pbar = tqdm(range(50), desc="Training Progress")  # Initialize progress bar
 
 for epoch in pbar:  # Number of epochs
     optimizer.zero_grad()

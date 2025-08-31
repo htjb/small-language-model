@@ -12,8 +12,9 @@ from sklearn.model_selection import (  # Import train_test_split for splitting d
     train_test_split,
 )
 from slm.byte_pair_encoding import bpe  # Import the bpe class
-from slm.networks import Transformer  # Import the Embedding class
+from slm.networks import Transformer, StackedTansformers  # Import the Embedding class
 from torch.nn.utils.rnn import pad_sequence
+from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import (  # Import Dataset and DataLoader for handling data
     DataLoader,
     SubsetRandomSampler,
@@ -29,6 +30,13 @@ else:
 
 print(f"Using device: {device}")
 
+def get_scheduler(optimizer, warmup_steps, total_steps):
+    def lr_lambda(step):
+        if step < warmup_steps:
+            return float(step) / float(max(1, warmup_steps))
+        return 1.0  # constant after warmup (or replace with decay fn)
+    
+    return LambdaLR(optimizer, lr_lambda)
 
 def step(
     batch: torch.Tensor,
@@ -52,10 +60,10 @@ def step(
     return loss, output, target_seq
 
 
-batch_size = 16  # Define the batch size
-embedding_size = 256  # Define the embedding size
+batch_size = 32  # Define the batch size
+embedding_size = 512  # Define the embedding size
 mlp_layers = 1  # Define the number of MLP layers
-mlp_dim = 256  # Define the MLP dimension
+mlp_dim = 512  # Define the MLP dimension
 context_window_size = 1024  # Define the context window size
 nheads = 8
 entropy = True
@@ -75,6 +83,7 @@ hyperparameters = {
     "context_window_size": context_window_size,
     "batch_size": batch_size,
     "nheads": nheads,
+    "ntransformers": 10,
     "entropy": entropy,
 }
 
@@ -94,7 +103,7 @@ train, test = train_test_split(text, test_size=0.3, random_state=42)
 test, val = train_test_split(test, test_size=0.5, random_state=42)
 
 # vocab_model = bag_of_words(files)
-vocab_model = bpe(train, num_merges=200)
+vocab_model = bpe(train, num_merges=1000)
 print(f"Number of tokens: {sum(vocab_model.freqs)}")
 logging.info(f"Number of tokens: {sum(vocab_model.freqs)}")
 with open("classic_books_vocab.pkl", "wb") as f:
@@ -163,15 +172,19 @@ weights = torch.cat([pad_weight, weights])
 # Define loss function and optimizer
 criterion = torch.nn.CrossEntropyLoss(weight=weights.to(device))
 optimizer = optim.AdamW(
-    transform.parameters(), lr=1e-4, weight_decay=1e-5
-)  # Use AdamW optimizer
+    transform.parameters(), lr=1e-3, weight_decay=0.01)
 
 best_loss = float("inf")  # Initialize best loss
 best_model = None  # Placeholder for the best model
 patience_counter = 0  # Initialize patience counter
 patience = 50
+epochs = 250
 
-pbar = tqdm(range(50), desc="Training Progress")  # Initialize progress bar
+total_steps = epochs * len(train_dataloader)/batch_size
+warmup_steps = 2 * len(train_dataloader)/batch_size
+scheduler = get_scheduler(optimizer, warmup_steps=warmup_steps, total_steps=total_steps)
+
+pbar = tqdm(range(epochs), desc="Training Progress")  # Initialize progress bar
 
 for epoch in pbar:  # Number of epochs
     optimizer.zero_grad()
@@ -186,6 +199,7 @@ for epoch in pbar:  # Number of epochs
         total_loss += loss.item()
         loss.backward()
         optimizer.step()
+        scheduler.step()
     avg_loss = total_loss / len(train_dataloader)
 
     val_loss = 0.0

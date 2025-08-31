@@ -193,10 +193,14 @@ class StackedTansformers(nn.Module):
     ):
         super(StackedTansformers, self).__init__()
         self.transformers = nn.ModuleList()
-        for _ in range(ntransformers):
+        for i in range(ntransformers):
+            if i == ntransformers - 1:
+                out_size = vocab_size
+            else:
+                out_size = embedding_dim
             self.transformers.append(
                 Transformer(
-                    vocab_size,
+                    out_size,
                     embedding_dim,
                     mlp_layers,
                     mlp_dim,

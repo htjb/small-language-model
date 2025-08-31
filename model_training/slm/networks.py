@@ -177,3 +177,41 @@ class Transformer(nn.Module):
             }
         else:
             return {"output": x, "entropy": None}
+
+class StackedTansformers(nn.Module):
+    def __init__(
+        self,
+        vocab_size,
+        embedding_dim,
+        mlp_layers,
+        mlp_dim,
+        context_window_size,
+        nheads,
+        ntransformers,
+        predict=False,
+        entropy=False,
+    ):
+        super(StackedTansformers, self).__init__()
+        self.transformers = nn.ModuleList()
+        for _ in range(ntransformers):
+            self.transformers.append(
+                Transformer(
+                    vocab_size,
+                    embedding_dim,
+                    mlp_layers,
+                    mlp_dim,
+                    context_window_size,
+                    nheads,
+                    predict=predict,
+                    entropy=entropy,
+                )
+            )
+
+    def forward(self, x):
+        entropy_loss = 0
+        for transformer in self.transformers:
+            out = transformer(x)
+            x = out["output"]
+            if transformer.entropy and transformer.predict is False:
+                entropy_loss += out["entropy"]
+        return {"output": x, "entropy": entropy_loss}

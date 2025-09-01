@@ -32,9 +32,7 @@ class bpe:
                             + ["".join(most_common[0])]
                             + words[i][j + 2:]
                         )
-                        j += 1
-                    else:
-                        j += 1
+                    j += 1
             mergers += 1
 
         processed_words = []

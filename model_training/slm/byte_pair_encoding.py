@@ -23,18 +23,18 @@ class bpe:
             most_common = pairs.most_common(1)[0]
             merger_rules[most_common[0]] = mergers
 
-            for i, word in enumerate(words):
-                pairs = list(zip(word[:-1], word[1:]))
-                        
-                positions = [j for j, pair in enumerate(pairs) if pair == most_common[0]]
-
-                if len(positions) > 0:
-                    for p in positions:
-                        if p + 2 < len(word):
-                            word = word[:p] + ["".join(most_common[0])] + word[p + 2:]
-                        else:
-                            word = word[:p] + ["".join(most_common[0])]
-                    words[i] = word
+            for i in range(len(words)):
+                j = 0
+                while j < len(words[i]) - 1:
+                    if (words[i][j], words[i][j + 1]) == most_common[0]:
+                        words[i] = (
+                            words[i][:j]
+                            + ["".join(most_common[0])]
+                            + words[i][j + 2:]
+                        )
+                        j += 1
+                    else:
+                        j += 1
             mergers += 1
 
         processed_words = []

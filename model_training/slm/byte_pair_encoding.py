@@ -40,32 +40,31 @@ class bpe:
             processed_words.append(w)
             if w in [".", "!", "?"]:
                 processed_words.append("EOS")
-        processed_words.append("EOS")
 
-        vocab = np.unique(np.concatenate(words)).tolist()
-        vocab.append("UNK")
-        vocab.append("EOS")
-        vocab.append(" ")
+        self.vocab = np.unique(np.concatenate(words)).tolist()
+        self.vocab.append("UNK")
+        self.vocab.append(" ")
+        if "EOS" not in self.vocab:
+            self.vocab.append("EOS")
 
-        self.vocab = vocab
         self.merger_rules = merger_rules
 
-        self.word_to_index = {word: i + 1 for i, word in enumerate(vocab)}
-        self.index_to_word = {i + 1: word for i, word in enumerate(vocab)}
+        self.word_to_index = {word: i + 1 for i, word in enumerate(self.vocab)}
+        self.index_to_word = {i + 1: word for i, word in enumerate(self.vocab)}
 
         codified = []
         for i, word in enumerate(processed_words):
             for subword in word:
                 if subword in [".", "!", "?"]:
-                    if len(codified) > 0:
-                        codified.pop()
+                    if len(codified) > 0 and codified[-1] == " ":
+                        codified.pop()   # only remove a space
                     codified.append(subword)
                     codified.append("EOS")
                 elif subword in self.vocab:
                     codified.append(subword)
                 else:
                     codified.append("UNK")
-            if i < len(tokenized) - 1:
+            if i < len(processed_words) - 1:
                 codified.append(" ")
 
         counter = Counter(codified)
@@ -96,7 +95,7 @@ class bpe:
         for i, word in enumerate(tokenized):
             for subword in word:
                 if subword in [".", "!", "?"]:
-                    if len(codified) > 0:
+                    if len(codified) > 0 and codified[-1] == " ":
                         codified.pop()
                     codified.append(subword)
                     codified.append("EOS")

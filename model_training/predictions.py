@@ -70,7 +70,7 @@ while (
     probs[int(vector[-1])] =0  # zero out the previous word
 
     # optional: top-k sampling
-    k = 10
+    k = 250
     top_k_indices = probs.argsort()[-k:]
     top_k_probs = probs[top_k_indices]
     top_k_probs /= top_k_probs.sum()  # normalize

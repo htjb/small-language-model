@@ -83,7 +83,7 @@ hyperparameters = {
     "context_window_size": context_window_size,
     "batch_size": batch_size,
     "nheads": nheads,
-    "ntransformers": 10,
+    "ntransformers": 5,
     "entropy": entropy,
 }
 
@@ -103,7 +103,7 @@ train, test = train_test_split(text, test_size=0.3, random_state=42)
 test, val = train_test_split(test, test_size=0.5, random_state=42)
 
 # vocab_model = bag_of_words(files)
-vocab_model = bpe(train, num_merges=1000)
+vocab_model = bpe(train, num_merges=2000)
 print(f"Number of tokens: {sum(vocab_model.freqs)}")
 logging.info(f"Number of tokens: {sum(vocab_model.freqs)}")
 with open("classic_books_vocab.pkl", "wb") as f:

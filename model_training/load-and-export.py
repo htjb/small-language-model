@@ -42,5 +42,11 @@ example_input = torch.randint(
 ).long()  # Example input tensor
 print(example_input)
 
-onnx_program = torch.onnx.export(transform, example_input, dynamo=True)
+onnx_program = torch.onnx.export(
+    transform,
+    example_input,
+    dynamo=True,
+    f="classic_books_model.onnx",
+    output_names=["output"],
+)
 onnx_program.save("classic_books_model.onnx")

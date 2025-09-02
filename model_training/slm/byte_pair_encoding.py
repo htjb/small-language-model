@@ -30,7 +30,7 @@ class bpe:
                         words[i] = (
                             words[i][:j]
                             + ["".join(most_common[0])]
-                            + words[i][j + 2:]
+                            + words[i][j + 2 :]
                         )
                     j += 1
             mergers += 1
@@ -57,7 +57,7 @@ class bpe:
             for subword in word:
                 if subword in [".", "!", "?"]:
                     if len(codified) > 0 and codified[-1] == " ":
-                        codified.pop()   # only remove a space
+                        codified.pop()  # only remove a space
                     codified.append(subword)
                     codified.append("EOS")
                 elif subword in self.vocab:
@@ -69,7 +69,7 @@ class bpe:
 
         counter = Counter(codified)
         self.freqs = torch.tensor(
-            [counter.get(word, 0) for word in vocab], dtype=torch.float
+            [counter.get(word, 0) for word in self.vocab], dtype=torch.float
         )
 
     def codify(self, line):

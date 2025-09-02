@@ -12,7 +12,7 @@ from sklearn.model_selection import (  # Import train_test_split for splitting d
     train_test_split,
 )
 from slm.byte_pair_encoding import bpe  # Import the bpe class
-from slm.networks import Transformer, StackedTansformers  # Import the Embedding class
+from slm.networks import Transformer  # Import the Embedding class
 from torch.nn.utils.rnn import pad_sequence
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import (  # Import Dataset and DataLoader for handling data
@@ -30,13 +30,15 @@ else:
 
 print(f"Using device: {device}")
 
+
 def get_scheduler(optimizer, warmup_steps, total_steps):
     def lr_lambda(step):
         if step < warmup_steps:
             return float(step) / float(max(1, warmup_steps))
         return 1.0  # constant after warmup (or replace with decay fn)
-    
+
     return LambdaLR(optimizer, lr_lambda)
+
 
 def step(
     batch: torch.Tensor,
@@ -50,9 +52,7 @@ def step(
 
     out = transform(input_seq)
     output = out["output"]  # Get the output from the model
-    entropy_loss = (
-        out["entropy"] if entropy else 0
-    )  # Get entropy loss if
+    entropy_loss = out["entropy"] if entropy else 0  # Get entropy loss if
     loss = (
         criterion(output.reshape(-1, output.size(-1)), target_seq.reshape(-1))
         + entropy_loss
@@ -171,8 +171,7 @@ weights = torch.cat([pad_weight, weights])
 
 # Define loss function and optimizer
 criterion = torch.nn.CrossEntropyLoss(weight=weights.to(device))
-optimizer = optim.AdamW(
-    transform.parameters(), lr=1e-3, weight_decay=0.01)
+optimizer = optim.AdamW(transform.parameters(), lr=1e-3, weight_decay=0.01)
 
 best_loss = float("inf")  # Initialize best loss
 best_model = None  # Placeholder for the best model
@@ -180,9 +179,11 @@ patience_counter = 0  # Initialize patience counter
 patience = 50
 epochs = 250
 
-total_steps = epochs * len(train_dataloader)/batch_size
-warmup_steps = 2 * len(train_dataloader)/batch_size
-scheduler = get_scheduler(optimizer, warmup_steps=warmup_steps, total_steps=total_steps)
+total_steps = epochs * len(train_dataloader) / batch_size
+warmup_steps = 2 * len(train_dataloader) / batch_size
+scheduler = get_scheduler(
+    optimizer, warmup_steps=warmup_steps, total_steps=total_steps
+)
 
 pbar = tqdm(range(epochs), desc="Training Progress")  # Initialize progress bar
 

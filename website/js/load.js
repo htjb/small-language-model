@@ -54,9 +54,9 @@ function bpe(text) {
       } else {
         codified.push("UNK");
       }
-      if (i < text.length - 1) {
-        codified.push(" ");
-      }
+    }
+    if (i < text.length - 1) {
+      codified.push(" ");
     }
   }
 
@@ -64,36 +64,28 @@ function bpe(text) {
   return indices;
 }
 
-function weightedChoice(items, weights) {
-  const r = Math.random();
-
+function weightedChoice(pairs) {
+  let r = Math.random();
   let cumulative = 0;
-  for (let i = 0; i < items.length; i++) {
-    cumulative += weights[i];
-    if (r < cumulative) {
-      return items[i];
-    }
+  for (let [i, p] of pairs) {
+    cumulative += p;
+    if (r < cumulative) return i;
   }
+  return pairs[pairs.length - 1][0]; // fallback
 }
 
-async function runModel(text, session) {
-  let re = /\w+|[^\w\s]/g;
-  let split_input = text.match(re);
-  split_input = split_input.map((a) => a.split(""));
-
-  let prepadded_input_sequence = bpe(split_input);
-  let input_sequence = prepadded_input_sequence.map(BigInt);
-  if (input_sequence.length < 1024) {
+async function runModel(initialSequence, session) {
+  let input_sequence = initialSequence.map(BigInt);
+  /*if (input_sequence.length < 1024) {
     input_sequence = input_sequence.concat(
       Array(1024 - input_sequence.length).fill(BigInt(0)),
     );
-  }
+  }*/
 
-  const input = new ort.Tensor(
-    "int64",
-    new BigInt64Array(input_sequence),
-    [1, 1024],
-  );
+  const input = new ort.Tensor("int64", new BigInt64Array(input_sequence), [
+    1,
+    input_sequence.length,
+  ]);
   const feeds = { x: input }; // change input_name accordingly
 
   const results = await session.run(feeds);
@@ -112,23 +104,24 @@ async function runModel(text, session) {
     probs.push(er / sum_exp_result);
   }
 
-  probs[prepadded_input_sequence[prepadded_input_sequence.length - 1]] = 0;
+  probs[input_sequence[initialSequence.length - 1]] = 0;
 
-  let indices = probs
-    .map((value, index) => [index, value])
-    .sort((a, b) => b[1] - a[1]) // sort by value descending
-    .slice(0, 250) // take top k
-    .map((pair) => pair[0]); // extract indices
+  // pair indices with probs
+  let indexed_probs = probs.map((p, i) => [i, p]);
 
-  // now do top k
-  probs.sort((a, b) => b - a);
-  let top_k = probs.slice(0, 250);
-  let top_k_sum = top_k.reduce((a, b) => a + b);
-  top_k = top_k.map((a) => a / top_k_sum);
+  // sort by prob
+  indexed_probs.sort((a, b) => b[1] - a[1]);
 
-  let int = weightedChoice(indices, top_k);
+  // take top-k
+  let top_k = indexed_probs.slice(0, 250);
 
-  return { int: int, length: prepadded_input_sequence.length + 1 };
+  // normalize
+  let total = top_k.reduce((acc, x) => acc + x[1], 0);
+  let normed = top_k.map(([i, p]) => [i, p / total]);
+
+  let int = weightedChoice(normed);
+
+  return { int: int, length: initialSequence.length + 1 };
 }
 
 const indexToWordContents = fs.readFileSync(
@@ -137,12 +130,23 @@ const indexToWordContents = fs.readFileSync(
 );
 let indexToWord = yaml.load(indexToWordContents);
 
-let text = "alice was beginning to what ";
+let text = "what is the whether";
 let out = { int: "", length: 0 };
 
+let re = /\w+|[^\w\s]/g;
+let split_input = text.match(re);
+split_input = split_input.map((a) => a.split(""));
+
+let sequence = bpe(split_input);
+
 while (out["length"] < 1025) {
-  out = await runModel(text, session);
-  text = text + indexToWord[out["int"]];
+  out = await runModel(sequence, session);
+  sequence.push(out["int"]);
   if (indexToWord[out["int"]] === "EOS") break;
 }
-console.log(text);
+console.log(
+  sequence
+    .map((a) => indexToWord[a])
+    .join("")
+    .replace(/EOS/g, ""),
+);

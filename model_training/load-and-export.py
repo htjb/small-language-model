@@ -38,15 +38,17 @@ transform.load_state_dict(
 example_input = torch.randint(
     0,
     len(vocab_model.word_to_index) + 1,
-    (1, hyperparameters["context_window_size"]),
+    (1, 5),
 ).long()  # Example input tensor
 print(example_input)
 
-onnx_program = torch.onnx.export(
+torch.onnx.export(
     transform,
     example_input,
-    dynamo=True,
+    opset_version=17,
+    do_constant_folding=True,
     f="classic_books_model.onnx",
+    input_names=["x"],
     output_names=["output"],
+    dynamic_axes={"x": {1: "seq_len"}, "output": {1: "seq_len"}},
 )
-onnx_program.save("classic_books_model.onnx")

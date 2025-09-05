@@ -91,9 +91,10 @@ h1 {
   font-size: 1.2em;
 }
 
-.response-element {
+.output-element {
   display: flex;
   justify-content: left;
+  word-break: break-word;
   background-color: #0098de;
   color: white;
   padding: 10px;

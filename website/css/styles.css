@@ -79,3 +79,25 @@ h1 {
   width: 20%;
   font-size: 1.5em;
 }
+
+.input-element {
+  display: flex;
+  justify-content: left;
+  background-color: #81d5ff;
+  color: rgb(0, 0, 0);
+  padding: 10px;
+  margin: 2% 25% 2% 30%;
+  border-radius: 10px;
+  font-size: 1.2em;
+}
+
+.response-element {
+  display: flex;
+  justify-content: left;
+  background-color: #0098de;
+  color: white;
+  padding: 10px;
+  margin: 2% 30% 2% 25%;
+  border-radius: 10px;
+  font-size: 1.2em;
+}

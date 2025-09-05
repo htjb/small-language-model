@@ -112,12 +112,12 @@ logging.info(f"Vocabulary size: {len(vocab_model.word_to_index)}")
 
 merger_rules = vocab_model.merger_rules
 keys = list(merger_rules.keys())
-np.savetxt("classic_books_merger_rules.txt", keys, fmt="%s")
+np.savetxt("../website/assets/classic_books_merger_rules.txt", keys, fmt="%s")
 
-with open("classic_books_word_to_index.yaml", "w") as f:
+with open("../website/assets/classic_books_word_to_index.yaml", "w") as f:
     yaml.dump(vocab_model.word_to_index, f)
 
-with open("classic_books_index_to_word.yaml", "w") as f:
+with open("../website/assets/classic_books_index_to_word.yaml", "w") as f:
     yaml.dump(vocab_model.index_to_word, f)
 
 

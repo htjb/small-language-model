@@ -47,7 +47,7 @@ torch.onnx.export(
     example_input,
     opset_version=17,
     do_constant_folding=True,
-    f="classic_books_model.onnx",
+    f="../website/assets/classic_books_model.onnx",
     input_names=["x"],
     output_names=["output"],
     dynamic_axes={"x": {1: "seq_len"}, "output": {1: "seq_len"}},

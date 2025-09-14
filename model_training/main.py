@@ -12,7 +12,7 @@ from sklearn.model_selection import (  # Import train_test_split for splitting d
     train_test_split,
 )
 from slm.byte_pair_encoding import bpe  # Import the bpe class
-from slm.networks import Transformer  # Import the Embedding class
+from slm.networks import StackedTransformers  # Import the Embedding class
 from torch.nn.utils.rnn import pad_sequence
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import (  # Import Dataset and DataLoader for handling data
@@ -21,12 +21,14 @@ from torch.utils.data import (  # Import Dataset and DataLoader for handling dat
 )
 from tqdm import tqdm  # Import tqdm for progress bar
 
-if torch.cuda.is_available():
+"""if torch.cuda.is_available():
     device = torch.device("cuda")
 elif torch.backends.mps.is_available():  # for mac with m1 chip
     device = torch.device("mps")
 else:
-    device = torch.device("cpu")
+    device = torch.device("cpu")"""
+
+device = torch.device("cpu")
 
 print(f"Using device: {device}")
 
@@ -42,7 +44,7 @@ def get_scheduler(optimizer, warmup_steps, total_steps):
 
 def step(
     batch: torch.Tensor,
-    transform: Transformer,
+    transform: StackedTransformers,
     criterion: torch.nn.CrossEntropyLoss,
     entropy: bool,
 ):
@@ -66,6 +68,7 @@ mlp_layers = 1  # Define the number of MLP layers
 mlp_dim = 512  # Define the MLP dimension
 context_window_size = 1024  # Define the context window size
 nheads = 8
+ntransformers = 2
 entropy = True
 
 if os.path.exists("classic_books.log"):
@@ -83,14 +86,14 @@ hyperparameters = {
     "context_window_size": context_window_size,
     "batch_size": batch_size,
     "nheads": nheads,
-    "ntransformers": 5,
+    "ntransformers": ntransformers,
     "entropy": entropy,
 }
 
-files = glob.glob(
-    "data/*.txt"
-)  # Get list of all text files in the data directory
-# files = ['data/alice-in-wonderland.txt']
+#files = glob.glob(
+#    "data/*.txt"
+#)  # Get list of all text files in the data directory
+files = ['data/alice-in-wonderland.txt']
 
 text = []
 for f in files:
@@ -121,7 +124,7 @@ with open("../website/assets/classic_books_index_to_word.yaml", "w") as f:
     yaml.dump(vocab_model.index_to_word, f)
 
 
-transform = Transformer(
+transform = StackedTransformers(
     vocab_size=len(vocab_model.word_to_index) + 1,
     embedding_dim=embedding_size,
     mlp_layers=mlp_layers,
@@ -129,6 +132,7 @@ transform = Transformer(
     context_window_size=context_window_size,
     nheads=nheads,
     entropy=entropy,
+    ntransformers=ntransformers,
 ).to(device)  # Create an instance of the Transformer class
 
 number_of_parameters = sum([p.numel() for p in transform.parameters()])

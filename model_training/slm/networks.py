@@ -178,7 +178,7 @@ class Transformer(nn.Module):
         else:
             return {"output": x, "entropy": None}
 
-class StackedTansformers(nn.Module):
+class StackedTransformers(nn.Module):
     def __init__(
         self,
         vocab_size,
@@ -191,7 +191,7 @@ class StackedTansformers(nn.Module):
         predict=False,
         entropy=False,
     ):
-        super(StackedTansformers, self).__init__()
+        super(StackedTransformers, self).__init__()
         self.transformers = nn.ModuleList()
         for i in range(ntransformers):
             if i == ntransformers - 1:

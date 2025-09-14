@@ -1,3 +1,7 @@
+"""
+Load a trained model and export it to ONNX format.
+"""
+
 import pickle
 
 import numpy as np

@@ -21,14 +21,12 @@ from torch.utils.data import (  # Import Dataset and DataLoader for handling dat
 )
 from tqdm import tqdm  # Import tqdm for progress bar
 
-"""if torch.cuda.is_available():
+if torch.cuda.is_available():
     device = torch.device("cuda")
 elif torch.backends.mps.is_available():  # for mac with m1 chip
     device = torch.device("mps")
 else:
-    device = torch.device("cpu")"""
-
-device = torch.device("cpu")
+    device = torch.device("cpu")
 
 print(f"Using device: {device}")
 

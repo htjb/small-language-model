@@ -12,7 +12,7 @@ from sklearn.model_selection import (  # Import train_test_split for splitting d
     train_test_split,
 )
 from slm.byte_pair_encoding import bpe  # Import the bpe class
-from slm.networks import StackedTransformers  # Import the Embedding class
+from slm.networks import StackedTransformers
 from torch.nn.utils.rnn import pad_sequence
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import (  # Import Dataset and DataLoader for handling data
@@ -90,10 +90,10 @@ hyperparameters = {
     "entropy": entropy,
 }
 
-#files = glob.glob(
-#    "data/*.txt"
-#)  # Get list of all text files in the data directory
-files = ['data/alice-in-wonderland.txt']
+files = glob.glob(
+    "data/*.txt"
+)  # Get list of all text files in the data directory
+# files = ['data/alice-in-wonderland.txt']
 
 text = []
 for f in files:
@@ -134,6 +134,10 @@ transform = StackedTransformers(
     entropy=entropy,
     ntransformers=ntransformers,
 ).to(device)  # Create an instance of the Transformer class
+
+"""from torchsummary import summary
+print(summary(transform, (batch_size, context_window_size - 1)))
+exit()"""
 
 number_of_parameters = sum([p.numel() for p in transform.parameters()])
 print("Number of paraemters: " + str(number_of_parameters))

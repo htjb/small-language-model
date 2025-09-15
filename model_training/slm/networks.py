@@ -31,6 +31,7 @@ class Transformer(nn.Module):
     def __init__(
         self,
         vocab_size,
+        out_size,
         embedding_dim,
         mlp_layers,
         mlp_dim,
@@ -38,9 +39,15 @@ class Transformer(nn.Module):
         nheads,
         predict=False,
         entropy=False,
+        embedding=True,
     ):
         super(Transformer, self).__init__()
-        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=0)
+        if embedding:
+            self.embedding = nn.Embedding(
+                vocab_size, embedding_dim, padding_idx=0
+            )
+        else:
+            self.embedding = False
         self.nheads = nheads
         self.predict = predict
         self.entropy = entropy  # Whether to compute entropy loss
@@ -75,26 +82,32 @@ class Transformer(nn.Module):
         self.layers.append(nn.Linear(embedding_dim, mlp_dim))
         for _ in range(mlp_layers):
             self.layers.append(nn.Linear(mlp_dim, mlp_dim))
-        self.layers.append(nn.Linear(mlp_dim, vocab_size))
+        self.layers.append(nn.Linear(mlp_dim, out_size))
 
     def forward(self, x):
-        embedding = self.embedding(x) + self.pos_enc[: x.size(1)].to(x.device)
-        layer_normed_embedding = self.layer_norm_pre_attention(embedding)
+        if self.embedding:
+            embedding = self.embedding(x) + self.pos_enc[: x.size(1)].to(
+                x.device
+            )
+            layer_normed_embedding = self.layer_norm_pre_attention(embedding)
+        else:
+            embedding = x  # for residual path
+            layer_normed_embedding = x
         normed_embedding = []
         for i in range(self.nheads):
             normed_embedding.append(
                 layer_normed_embedding[
-                    :,
-                    :,
+                    :,  # batch size
+                    :,  # sequence length
                     (i * layer_normed_embedding.size(2)) // self.nheads : (
                         (i + 1) * layer_normed_embedding.size(2)
                     )
-                    // self.nheads,
+                    // self.nheads,  # embedding dim//nheads
                 ]
             )
 
-        # Create padding mask: True where pad tokens are
-        pad_mask = x == 0  # shape [batch, seq_len]
+        if self.embedding:
+            pad_mask = x == 0  # Assuming padding token index is 0
 
         attention_head_outputs = []
         attention_head_weights = []
@@ -103,20 +116,31 @@ class Transformer(nn.Module):
             key = self.key[i](normed_embedding[i])
             value = self.value[i](normed_embedding[i])
 
+            # rows = query, cols = key??
             attention_scores = torch.matmul(query, key.transpose(-2, -1)) / (
                 key.size(-1) ** 0.5
             )
 
             # Causal mask
+            # Create a upper triangular matrix for causal masking
             seq_len = normed_embedding[i].size(1)
-            causal_mask = torch.tril(
-                torch.ones(seq_len, seq_len, device=x.device)
+            causal_mask = torch.triu(
+                torch.ones(seq_len, seq_len, device=x.device), diagonal=1
             ).bool()
 
             # Combine causal + pad mask
-            # pad_mask: [batch, seq_len] -> expand to [batch, 1, seq_len]
-            combined_mask = (causal_mask).unsqueeze(0) | pad_mask.unsqueeze(1)
+            # pad_mask: [batch, seq_len] -> expand to [batch, 1, seq_len] -> [batch, seq_len, seq_len]
+            key_padding_mask = (
+                pad_mask.unsqueeze(1).expand(-1, seq_len, -1)
+                if self.embedding
+                else None
+            )
+            if self.embedding:
+                combined_mask = (causal_mask).unsqueeze(0) | (key_padding_mask)
+            else:
+                combined_mask = causal_mask.unsqueeze(0)
 
+            # masks the true positions with a large negative value
             attention_scores = attention_scores.masked_fill(
                 combined_mask, -1e9
             )
@@ -135,15 +159,15 @@ class Transformer(nn.Module):
         )  # shape: [batch_size, nheads, seq_len, seq_len]
         # row-wise entropy
         if self.entropy and self.predict is False:
-            uniform = torch.full_like(attention_head_weights, 1.0 / 
-                        attention_head_weights.size(-1))
             kl = torch.sum(
-                attention_head_weights * 
-                (torch.log(attention_head_weights + 1e-8) - 
-                math.log(1.0 / attention_head_weights.size(-1))),
-                dim=-1
+                attention_head_weights
+                * (
+                    torch.log(attention_head_weights + 1e-8)
+                    - math.log(1.0 / attention_head_weights.size(-1))
+                ),
+                dim=-1,
             )
-            entropy_loss = kl.mean()   # >= 0 and well-scaled
+            entropy_loss = kl.mean()  # >= 0 and well-scaled
 
         # x = torch.stack(attention_head_outputs, dim=1).sum(dim=1)
         x = torch.cat(attention_head_outputs, dim=-1)
@@ -178,6 +202,7 @@ class Transformer(nn.Module):
         else:
             return {"output": x, "entropy": None}
 
+
 class StackedTransformers(nn.Module):
     def __init__(
         self,
@@ -194,20 +219,28 @@ class StackedTransformers(nn.Module):
         super(StackedTransformers, self).__init__()
         self.transformers = nn.ModuleList()
         for i in range(ntransformers):
-            if i == ntransformers - 1:
-                out_size = vocab_size
+            if i == 0:
+                embed_flag = True
+                in_size = vocab_size  # used only for embedding layer
             else:
-                out_size = embedding_dim
+                embed_flag = False
+                in_size = embedding_dim  # float embeddings
+
+            is_last = i == ntransformers - 1
+            out_size = vocab_size if is_last else embedding_dim
+
             self.transformers.append(
                 Transformer(
-                    out_size,
-                    embedding_dim,
-                    mlp_layers,
-                    mlp_dim,
-                    context_window_size,
-                    nheads,
+                    vocab_size=in_size,
+                    out_size=out_size,
+                    embedding_dim=embedding_dim,
+                    mlp_layers=mlp_layers,
+                    mlp_dim=mlp_dim,
+                    context_window_size=context_window_size,
+                    nheads=nheads,
                     predict=predict,
                     entropy=entropy,
+                    embedding=embed_flag,
                 )
             )
 

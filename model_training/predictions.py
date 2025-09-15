@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import yaml
 from slm.byte_pair_encoding import bpe  # Import the bpe class
-from slm.networks import Transformer  # Import the Embedding class
+from slm.networks import StackedTransformers  # Import the Embedding class
 
 np.random.seed(42)
 torch.manual_seed(42)
@@ -12,7 +12,7 @@ torch.manual_seed(42)
 
 def step(
     vector: torch.Tensor,
-    transform: Transformer,
+    transform: StackedTransformers,
     criterion: torch.nn.CrossEntropyLoss,
 ):
     output = transform(vector[0].unsqueeze(0))
@@ -27,7 +27,7 @@ hyperparameters = yaml.safe_load(
 
 vocab_model = pickle.load(open("classic_books_vocab.pkl", "rb"))
 
-transform = Transformer(
+transform = StackedTransformers(
     vocab_size=len(vocab_model.word_to_index) + 1,
     embedding_dim=hyperparameters["embedding_size"],
     mlp_layers=hyperparameters["mlp_layers"],
@@ -36,6 +36,7 @@ transform = Transformer(
     nheads=hyperparameters["nheads"],
     predict=True,
     entropy=hyperparameters["entropy"],
+    ntransformers=hyperparameters["ntransformers"],
 )  # Create an instance of the Transformer class
 
 state_dict = torch.load(

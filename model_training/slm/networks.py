@@ -124,21 +124,23 @@ class Transformer(nn.Module):
             # Causal mask
             # Create a upper triangular matrix for causal masking
             seq_len = normed_embedding[i].size(1)
-            causal_mask = torch.triu(
+            causal_mask = torch.tril(
                 torch.ones(seq_len, seq_len, device=x.device), diagonal=1
             ).bool()
 
             # Combine causal + pad mask
             # pad_mask: [batch, seq_len] -> expand to [batch, 1, seq_len] -> [batch, seq_len, seq_len]
-            key_padding_mask = (
+            key_padding_mask = torch.tensor(
                 pad_mask.unsqueeze(1).expand(-1, seq_len, -1)
                 if self.embedding
                 else None
             )
             if self.embedding:
-                combined_mask = (causal_mask).unsqueeze(0) | (key_padding_mask)
+                combined_mask = (~causal_mask).unsqueeze(0) | (
+                    key_padding_mask
+                )
             else:
-                combined_mask = causal_mask.unsqueeze(0)
+                combined_mask = ~causal_mask.unsqueeze(0)
 
             # masks the true positions with a large negative value
             attention_scores = attention_scores.masked_fill(

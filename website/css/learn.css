@@ -1,0 +1,22 @@
+.content {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+#learn-contents {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  background-color: #f0f0f0;
+  border-radius: 10px;
+  margin-right: 20px;
+  width: 20%;
+}
+
+#learn-text {
+  flex-grow: 1;
+  padding: 10%;
+  text-align: center;
+}

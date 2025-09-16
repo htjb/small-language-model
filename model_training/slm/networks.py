@@ -130,7 +130,7 @@ class Transformer(nn.Module):
 
             # Combine causal + pad mask
             # pad_mask: [batch, seq_len] -> expand to [batch, 1, seq_len] -> [batch, seq_len, seq_len]
-            key_padding_mask = torch.tensor(
+            key_padding_mask = (
                 pad_mask.unsqueeze(1).expand(-1, seq_len, -1)
                 if self.embedding
                 else None

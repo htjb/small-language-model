@@ -68,12 +68,13 @@ context_window_size = 1024  # Define the context window size
 nheads = 8
 ntransformers = 2
 entropy = True
+model_name = "simple-wiki"
 
-if os.path.exists("classic_books.log"):
-    os.remove("classic_books.log")
+if os.path.exists(model_name + ".log"):
+    os.remove(model_name + ".log")
 
 logging.basicConfig(
-    filename="classic_books.log",
+    filename=model_name + ".log",
     level=logging.INFO,
 )
 
@@ -89,7 +90,7 @@ hyperparameters = {
 }
 
 files = glob.glob(
-    "data/*.txt"
+    "data/" + model_name + "/*.txt"
 )  # Get list of all text files in the data directory
 # files = ['data/alice-in-wonderland.txt']
 
@@ -107,18 +108,20 @@ test, val = train_test_split(test, test_size=0.5, random_state=42)
 vocab_model = bpe(train, num_merges=2000)
 print(f"Number of tokens: {sum(vocab_model.freqs)}")
 logging.info(f"Number of tokens: {sum(vocab_model.freqs)}")
-with open("classic_books_vocab.pkl", "wb") as f:
+with open(model_name + "_vocab.pkl", "wb") as f:
     pickle.dump(vocab_model, f)
 logging.info(f"Vocabulary size: {len(vocab_model.word_to_index)}")
 
 merger_rules = vocab_model.merger_rules
 keys = list(merger_rules.keys())
-np.savetxt("../website/assets/classic_books_merger_rules.txt", keys, fmt="%s")
+np.savetxt(
+    "../website/assets/" + model_name + "_merger_rules.txt", keys, fmt="%s"
+)
 
-with open("../website/assets/classic_books_word_to_index.yaml", "w") as f:
+with open("../website/assets/" + model_name + "_word_to_index.yaml", "w") as f:
     yaml.dump(vocab_model.word_to_index, f)
 
-with open("../website/assets/classic_books_index_to_word.yaml", "w") as f:
+with open("../website/assets/" + model_name + "_index_to_word.yaml", "w") as f:
     yaml.dump(vocab_model.index_to_word, f)
 
 
@@ -255,8 +258,8 @@ for epoch in pbar:  # Number of epochs
 if best_model is not None:
     transform.load_state_dict(best_model)  # Load the best model
 
-torch.save(transform.state_dict(), "classic_books_model.pth")
-with open("classic_books_hyperparameters.yaml", "w") as f:
+torch.save(transform.state_dict(), model_name + "_model.pth")
+with open(model_name + "_hyperparameters.yaml", "w") as f:
     yaml.dump(hyperparameters, f)  # Save hyperparameters to a YAML file
 
 transform.eval()

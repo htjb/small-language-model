@@ -8,7 +8,7 @@ wiki = load_dataset("wikimedia/wikipedia", "20231101.simple", split=None)[
 
 pbar = tqdm(wiki, desc="Processing articles")
 for i, example in enumerate(pbar):
-    with open(f"wiki_{i:05d}.txt", "w", encoding="utf-8") as f:
+    with open(f"wiki_{i}.txt", "w", encoding="utf-8") as f:
         f.write(example["text"])
     if i >= 1000:  # Limit to first 1000 articles for this example
         break

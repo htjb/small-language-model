@@ -62,13 +62,13 @@ def step(
 
 
 batch_size = 32  # Define the batch size
-embedding_size = 512  # Define the embedding size
+embedding_size = 128  # Define the embedding size
 mlp_layers = 1  # Define the number of MLP layers
-mlp_dim = 512  # Define the MLP dimension
+mlp_dim = 128  # Define the MLP dimension
 context_window_size = 1024  # Define the context window size
-nheads = 8
+nheads = 2
 ntransformers = 1
-entropy = True
+entropy = False
 model_name = "simple-wiki"
 load_vocab = True
 

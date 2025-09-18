@@ -2,7 +2,7 @@ import glob
 import logging
 import os
 import pickle
-
+import re
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -66,7 +66,7 @@ mlp_layers = 1  # Define the number of MLP layers
 mlp_dim = 512  # Define the MLP dimension
 context_window_size = 1024  # Define the context window size
 nheads = 8
-ntransformers = 2
+ntransformers = 1
 entropy = True
 model_name = "simple-wiki"
 
@@ -99,6 +99,10 @@ for f in files:
     with open(f, "r") as file:
         text.append(file.readlines())  # Read the text file line by line
 text = np.concatenate(text)
+text = [re.split(r'(?<=[.!?])\s+', line.strip()) 
+        for line in text if line.strip()]  # Remove empty lines
+text = np.concatenate(text).tolist()
+
 
 # Train/test/val split shuffles by default
 train, test = train_test_split(text, test_size=0.3, random_state=42)

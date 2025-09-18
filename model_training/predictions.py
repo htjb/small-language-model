@@ -20,12 +20,13 @@ def step(
     loss = criterion(output[0, :-1], target)
     return loss, output, target
 
+model_name = 'simple-wiki'
 
 hyperparameters = yaml.safe_load(
-    open("classic_books_hyperparameters.yaml", "r")
+    open(model_name + "_hyperparameters.yaml", "r")
 )
 
-vocab_model = pickle.load(open("classic_books_vocab.pkl", "rb"))
+vocab_model = pickle.load(open(model_name + "_vocab.pkl", "rb"))
 
 transform = StackedTransformers(
     vocab_size=len(vocab_model.word_to_index) + 1,
@@ -40,7 +41,7 @@ transform = StackedTransformers(
 )  # Create an instance of the Transformer class
 
 state_dict = torch.load(
-    "classic_books_model.pth", map_location=torch.device("cpu")
+    model_name + "_model.pth", map_location=torch.device("cpu")
 )  # Load the state dictionary
 
 transform.load_state_dict(

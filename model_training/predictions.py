@@ -59,7 +59,8 @@ while (
     and len(vector) < hyperparameters["context_window_size"]
 ):
     output = transform(vector.unsqueeze(0))
-    output[0, -1, 0] = -float("Inf")  # zero out PAD class
+    output['output'][0, -1, 0] = -float("Inf")  # zero out PAD class
+    output['output'][0, -1, vocab_model.word_to_index["UNK"]] = -float("Inf")  # zero out UNK class
 
     probs = (
         torch.nn.functional.softmax(output["output"][0, -1, :], dim=0)

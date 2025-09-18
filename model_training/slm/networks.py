@@ -110,7 +110,7 @@ class Transformer(nn.Module):
             pad_mask = x == 0  # Assuming padding token index is 0
 
         attention_head_outputs = []
-        attention_head_weights = []
+        entropy_loss = 0
         for i in range(self.nheads):
             query = self.query[i](normed_embedding[i])
             key = self.key[i](normed_embedding[i])
@@ -150,28 +150,17 @@ class Transformer(nn.Module):
             attention_weights = torch.nn.functional.softmax(
                 attention_scores, dim=-1
             )
-            attention_head_weights.append(attention_weights)
+            if self.entropy:
+                kl_list = []
+                for w in attention_weights:  # w is [914, 914]
+                    kl_list = w * (torch.log(w + 1e-8) - math.log(1.0 / w.size(-1))))
+                kl = torch.stack(kl_list)
+                entropy_loss += kl.mean()  # >= 0 and well-scaled
 
             attention_head_outputs.append(
                 torch.matmul(attention_weights, value)
             )
 
-        attention_head_weights = torch.stack(
-            attention_head_weights, dim=1
-        )  # shape: [batch_size, nheads, seq_len, seq_len]
-        # row-wise entropy
-        if self.entropy and self.predict is False:
-            kl = torch.sum(
-                attention_head_weights
-                * (
-                    torch.log(attention_head_weights + 1e-8)
-                    - math.log(1.0 / attention_head_weights.size(-1))
-                ),
-                dim=-1,
-            )
-            entropy_loss = kl.mean()  # >= 0 and well-scaled
-
-        # x = torch.stack(attention_head_outputs, dim=1).sum(dim=1)
         x = torch.cat(attention_head_outputs, dim=-1)
 
         x = x + embedding

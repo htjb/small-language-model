@@ -61,7 +61,7 @@ def step(
     return loss, output, target_seq
 
 
-batch_size = 64  # Define the batch size
+batch_size = 32  # Define the batch size
 embedding_size = 512  # Define the embedding size
 mlp_layers = 1  # Define the number of MLP layers
 mlp_dim = 512  # Define the MLP dimension
@@ -70,6 +70,7 @@ nheads = 8
 ntransformers = 1
 entropy = True
 model_name = "simple-wiki"
+load_vocab = True
 
 if os.path.exists(model_name + ".log"):
     os.remove(model_name + ".log")
@@ -111,7 +112,13 @@ test, val = train_test_split(test, test_size=0.5, random_state=42)
 print(f"Train size: {len(train)}")
 
 # vocab_model = bag_of_words(files)
-vocab_model = bpe(train[:int(len(train)/100*5)], num_merges=1000)
+if load_vocab and os.path.exists(model_name + "_vocab.pkl"):
+    with open(model_name + "_vocab.pkl", "rb") as f:
+        vocab_model = pickle.load(f)
+    print(f"Loaded vocabulary of size: {len(vocab_model.word_to_index)}")
+    logging.info(f"Loaded vocabulary of size: {len(vocab_model.word_to_index)}")
+else:
+    vocab_model = bpe(train[:int(len(train)/100*5)], num_merges=1000)
 print(f"Number of tokens: {sum(vocab_model.freqs)}")
 logging.info(f"Number of tokens: {sum(vocab_model.freqs)}")
 with open(model_name + "_vocab.pkl", "wb") as f:

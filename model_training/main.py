@@ -15,6 +15,7 @@ from slm.byte_pair_encoding import bpe  # Import the bpe class
 from slm.networks import StackedTransformers
 from torch.nn.utils.rnn import pad_sequence
 from torch.optim.lr_scheduler import LambdaLR
+from torch.amp import autocast, GradScaler
 from torch.utils.data import (  # Import Dataset and DataLoader for handling data
     DataLoader,
     SubsetRandomSampler,
@@ -60,7 +61,7 @@ def step(
     return loss, output, target_seq
 
 
-batch_size = 32  # Define the batch size
+batch_size = 64  # Define the batch size
 embedding_size = 512  # Define the embedding size
 mlp_layers = 1  # Define the number of MLP layers
 mlp_dim = 512  # Define the MLP dimension
@@ -107,9 +108,10 @@ text = np.concatenate(text).tolist()
 # Train/test/val split shuffles by default
 train, test = train_test_split(text, test_size=0.3, random_state=42)
 test, val = train_test_split(test, test_size=0.5, random_state=42)
+print(f"Train size: {len(train)}")
 
 # vocab_model = bag_of_words(files)
-vocab_model = bpe(train, num_merges=2000)
+vocab_model = bpe(train[:int(len(train)/100*5)], num_merges=1000)
 print(f"Number of tokens: {sum(vocab_model.freqs)}")
 logging.info(f"Number of tokens: {sum(vocab_model.freqs)}")
 with open(model_name + "_vocab.pkl", "wb") as f:
@@ -196,6 +198,7 @@ weights = torch.cat([pad_weight, weights])
 # Define loss function and optimizer
 criterion = torch.nn.CrossEntropyLoss(weight=weights.to(device))
 optimizer = optim.AdamW(transform.parameters(), lr=1e-3, weight_decay=0.01)
+scaler = GradScaler(device.type)
 
 best_loss = float("inf")  # Initialize best loss
 best_model = None  # Placeholder for the best model
@@ -212,18 +215,19 @@ scheduler = get_scheduler(
 pbar = tqdm(range(epochs), desc="Training Progress")  # Initialize progress bar
 
 for epoch in pbar:  # Number of epochs
-    optimizer.zero_grad()
     total_loss = 0.0
     for vector in train_dataloader:
         optimizer.zero_grad()
-        vector = vector.to(device)
-        loss, _, _ = step(
-            vector, transform, criterion, entropy
-        )  # Perform a training step
-        # loss already deals with padding
-        total_loss += loss.item()
-        loss.backward()
-        optimizer.step()
+        with autocast(device_type=device.type, dtype=torch.bfloat16):
+            vector = vector.to(device)
+            loss, _, _ = step(
+                vector, transform, criterion, entropy
+            )  # Perform a training step
+            # loss already deals with padding
+            total_loss += loss.item()
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)#.step()
+        scaler.update()
         scheduler.step()
     avg_loss = total_loss / len(train_dataloader)
 

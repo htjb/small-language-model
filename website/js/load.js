@@ -2,6 +2,7 @@ import { weightedChoice, loadYaml } from "./utils.js";
 import { bpe } from "./bpe.js";
 
 let indexToWord = await loadYaml("./assets/classic_books_index_to_word.yaml");
+let wordToIndex = await loadYaml("./assets/classic_books_word_to_index.yaml");
 
 async function runModel(initialSequence, session) {
   let inputSequence = initialSequence.map(BigInt);
@@ -15,6 +16,8 @@ async function runModel(initialSequence, session) {
   const results = await session.run(feeds);
   let res = results["output"]["cpuData"];
   res[0] = -Infinity;
+  let unkIndex = wordToIndex["UNK"];
+  red[unkIndex] = -Infinity;
 
   let sumExpResult = 0;
   let expResult = [];

@@ -21,6 +21,20 @@ from torch.utils.data import (  # Import Dataset and DataLoader for handling dat
     SubsetRandomSampler,
 )
 from tqdm import tqdm  # Import tqdm for progress bar
+import unicodedata
+
+
+def clean_non_latin(text):
+    # 1. Decompose accents so é → e + ́
+    nfkd = unicodedata.normalize("NFKD", text)
+    # 2. Remove combining marks (accents)
+    no_accents = "".join(c for c in nfkd
+                         if not unicodedata.combining(c))
+    # 3. Keep only characters you want: 
+    #    - ASCII letters/numbers
+    #    - basic punctuation/math (common Unicode math symbols)
+    allowed = re.sub(r"[^A-Za-z0-9\s\.,;:\-\+\*/=<>\(\)\[\]\{\}~!@#\$%\^&\|\\\?\^\_]", "", no_accents)
+    return allowed
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
@@ -102,10 +116,24 @@ for f in files:
         text.append(file.readlines())  # Read the text file line by line
 text = np.concatenate(text)
 text = [re.split(r'(?<=[.!?])\s+', line.strip()) 
-        for line in text if line.strip()]  # Remove empty lines
+        for line in text if line.strip()]  # Remove empty lines and split on punctuation
 text = np.concatenate(text).tolist()
+text = [clean_non_latin(t) for t in text]
 
-
+while any(len(t) > context_window_size for t in text):
+    new_text = []
+    for i, t in enumerate(text):
+        if len(t) > context_window_size:
+            # split at nearest space before context_window_size
+            split_idx = t.rfind(' ', 0, context_window_size)
+            if split_idx == -1:  # no space found, hard split
+                split_idx = context_window_size
+            new_text.append(t[:split_idx].strip())
+            new_text.append(t[split_idx:].strip())
+        else:
+            new_text.append(t)
+    text = new_text
+            
 # Train/test/val split shuffles by default
 train, test = train_test_split(text, test_size=0.3, random_state=42)
 test, val = train_test_split(test, test_size=0.5, random_state=42)

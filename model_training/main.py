@@ -84,7 +84,7 @@ nheads = 2
 ntransformers = 1
 entropy = False
 model_name = "simple-wiki"
-load_vocab = True
+load_vocab = False
 
 if os.path.exists(model_name + ".log"):
     os.remove(model_name + ".log")

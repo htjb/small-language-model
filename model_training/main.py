@@ -3,6 +3,8 @@ import logging
 import os
 import pickle
 import re
+import unicodedata
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -13,28 +15,31 @@ from sklearn.model_selection import (  # Import train_test_split for splitting d
 )
 from slm.byte_pair_encoding import bpe  # Import the bpe class
 from slm.networks import StackedTransformers
+from torch.amp import GradScaler, autocast
 from torch.nn.utils.rnn import pad_sequence
 from torch.optim.lr_scheduler import LambdaLR
-from torch.amp import autocast, GradScaler
 from torch.utils.data import (  # Import Dataset and DataLoader for handling data
     DataLoader,
     SubsetRandomSampler,
 )
 from tqdm import tqdm  # Import tqdm for progress bar
-import unicodedata
 
 
 def clean_non_latin(text):
     # 1. Decompose accents so é → e + ́
     nfkd = unicodedata.normalize("NFKD", text)
     # 2. Remove combining marks (accents)
-    no_accents = "".join(c for c in nfkd
-                         if not unicodedata.combining(c))
-    # 3. Keep only characters you want: 
+    no_accents = "".join(c for c in nfkd if not unicodedata.combining(c))
+    # 3. Keep only characters you want:
     #    - ASCII letters/numbers
     #    - basic punctuation/math (common Unicode math symbols)
-    allowed = re.sub(r"[^A-Za-z0-9\s\.,;:\-\+\*/=<>\(\)\[\]\{\}~!@#\$%\^&\|\\\?\^\_]", "", no_accents)
+    allowed = re.sub(
+        r"[^A-Za-z0-9\s\.,;:\-\+\*/=<>\(\)\[\]\{\}~!@#\$%\^&\|\\\?\^\_]",
+        "",
+        no_accents,
+    )
     return allowed
+
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
@@ -76,12 +81,12 @@ def step(
 
 
 batch_size = 32  # Define the batch size
-embedding_size = 128  # Define the embedding size
+embedding_size = 256  # Define the embedding size
 mlp_layers = 1  # Define the number of MLP layers
-mlp_dim = 128  # Define the MLP dimension
-context_window_size = 1024  # Define the context window size
+mlp_dim = 4 * embedding_size  # Define the MLP dimension
+context_window_size = 256  # Define the context window size
 nheads = 2
-ntransformers = 1
+ntransformers = 4
 entropy = False
 model_name = "simple-wiki"
 load_vocab = False
@@ -115,8 +120,9 @@ for f in files:
     with open(f, "r") as file:
         text.append(file.readlines())  # Read the text file line by line
 text = np.concatenate(text)
-text = [re.split(r'(?<=[.!?])\s+', line.strip()) 
-        for line in text if line.strip()]  # Remove empty lines and split on punctuation
+text = [
+    re.split(r"(?<=[.!?])\s+", line.strip()) for line in text if line.strip()
+]  # Remove empty lines and split on punctuation
 text = np.concatenate(text).tolist()
 text = [clean_non_latin(t) for t in text]
 
@@ -125,7 +131,7 @@ while any(len(t) > context_window_size for t in text):
     for i, t in enumerate(text):
         if len(t) > context_window_size:
             # split at nearest space before context_window_size
-            split_idx = t.rfind(' ', 0, context_window_size)
+            split_idx = t.rfind(" ", 0, context_window_size)
             if split_idx == -1:  # no space found, hard split
                 split_idx = context_window_size
             new_text.append(t[:split_idx].strip())
@@ -133,7 +139,7 @@ while any(len(t) > context_window_size for t in text):
         else:
             new_text.append(t)
     text = new_text
-            
+
 # Train/test/val split shuffles by default
 train, test = train_test_split(text, test_size=0.3, random_state=42)
 test, val = train_test_split(test, test_size=0.5, random_state=42)
@@ -144,9 +150,11 @@ if load_vocab and os.path.exists(model_name + "_vocab.pkl"):
     with open(model_name + "_vocab.pkl", "rb") as f:
         vocab_model = pickle.load(f)
     print(f"Loaded vocabulary of size: {len(vocab_model.word_to_index)}")
-    logging.info(f"Loaded vocabulary of size: {len(vocab_model.word_to_index)}")
+    logging.info(
+        f"Loaded vocabulary of size: {len(vocab_model.word_to_index)}"
+    )
 else:
-    vocab_model = bpe(train[:int(len(train)/100*5)], num_merges=1000)
+    vocab_model = bpe(train[: int(len(train) / 100 * 5)], num_merges=1000)
 print(f"Number of tokens: {sum(vocab_model.freqs)}")
 logging.info(f"Number of tokens: {sum(vocab_model.freqs)}")
 with open(model_name + "_vocab.pkl", "wb") as f:
@@ -261,7 +269,7 @@ for epoch in pbar:  # Number of epochs
             # loss already deals with padding
             total_loss += loss.item()
         scaler.scale(loss).backward()
-        scaler.step(optimizer)#.step()
+        scaler.step(optimizer)
         scaler.update()
         scheduler.step()
     avg_loss = total_loss / len(train_dataloader)

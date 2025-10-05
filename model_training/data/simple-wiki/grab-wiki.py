@@ -10,5 +10,5 @@ pbar = tqdm(wiki, desc="Processing articles")
 for i, example in enumerate(pbar):
     with open(f"wiki_{i}.txt", "w", encoding="utf-8") as f:
         f.write(example["text"])
-    if i >= 10000:  # Limit to first 1000 articles for this example
-        break
+    #if i >= 10000:  # Limit to first 1000 articles for this example
+    #    break

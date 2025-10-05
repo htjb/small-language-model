@@ -40,6 +40,35 @@ def clean_non_latin(text):
     )
     return allowed
 
+import torch
+
+def split_at_context_window(text, context_window_size, space_token_id):
+    """
+    text: list of 1D tensors of token IDs
+    context_window_size: max tokens per chunk
+    space_token_id: token ID of space for soft splitting
+    """
+    result = []
+
+    for t in text:  # iterate over each sequence
+        start = 0
+        n = t.size(0)
+        while start < n:
+            end = min(start + context_window_size, n)
+            chunk = t[start:end]
+
+            # try to split at last space in the chunk if possible
+            if end < n:
+                space_positions = (chunk == space_token_id).nonzero(as_tuple=True)[0]
+                if len(space_positions) > 0:
+                    split_idx = space_positions[-1].item() + 1
+                    chunk = chunk[:split_idx]
+                    end = start + split_idx
+
+            result.append(chunk)
+            start = end
+
+    return result  # list of 1D tensors
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
@@ -80,16 +109,16 @@ def step(
     return loss, output, target_seq
 
 
-batch_size = 32  # Define the batch size
+batch_size = 128  # Define the batch size
 embedding_size = 256  # Define the embedding size
 mlp_layers = 1  # Define the number of MLP layers
 mlp_dim = 4 * embedding_size  # Define the MLP dimension
 context_window_size = 256  # Define the context window size
 nheads = 2
-ntransformers = 4
+ntransformers = 2
 entropy = False
 model_name = "simple-wiki"
-load_vocab = False
+load_vocab = True
 
 if os.path.exists(model_name + ".log"):
     os.remove(model_name + ".log")
@@ -112,8 +141,7 @@ hyperparameters = {
 
 files = glob.glob(
     "data/" + model_name + "/*.txt"
-)  # Get list of all text files in the data directory
-# files = ['data/alice-in-wonderland.txt']
+)[:50000]
 
 text = []
 for f in files:
@@ -125,20 +153,6 @@ text = [
 ]  # Remove empty lines and split on punctuation
 text = np.concatenate(text).tolist()
 text = [clean_non_latin(t) for t in text]
-
-while any(len(t) > context_window_size for t in text):
-    new_text = []
-    for i, t in enumerate(text):
-        if len(t) > context_window_size:
-            # split at nearest space before context_window_size
-            split_idx = t.rfind(" ", 0, context_window_size)
-            if split_idx == -1:  # no space found, hard split
-                split_idx = context_window_size
-            new_text.append(t[:split_idx].strip())
-            new_text.append(t[split_idx:].strip())
-        else:
-            new_text.append(t)
-    text = new_text
 
 # Train/test/val split shuffles by default
 train, test = train_test_split(text, test_size=0.3, random_state=42)
@@ -198,6 +212,9 @@ train = [vocab_model.codify(t) for t in train if t.strip()]
 val = [vocab_model.codify(t) for t in val if t.strip()]
 test = [vocab_model.codify(t) for t in test if t.strip()]
 
+train = split_at_context_window(train, context_window_size, vocab_model.word_to_index.get(" "))
+val = split_at_context_window(val, context_window_size, vocab_model.word_to_index.get(" "))
+test = split_at_context_window(test, context_window_size, vocab_model.word_to_index.get(" "))
 
 # Collate function: pad within a batch
 def collate_batch(batch):
@@ -246,8 +263,8 @@ scaler = GradScaler(device.type)
 best_loss = float("inf")  # Initialize best loss
 best_model = None  # Placeholder for the best model
 patience_counter = 0  # Initialize patience counter
-patience = 50
-epochs = 250
+patience = 5
+epochs = 25
 
 total_steps = epochs * len(train_dataloader) / batch_size
 warmup_steps = 2 * len(train_dataloader) / batch_size
@@ -257,21 +274,26 @@ scheduler = get_scheduler(
 
 pbar = tqdm(range(epochs), desc="Training Progress")  # Initialize progress bar
 
+accumulation_steps = 10  # Gradient accumulation steps
+
 for epoch in pbar:  # Number of epochs
+    optimizer.zero_grad()
     total_loss = 0.0
-    for vector in train_dataloader:
-        optimizer.zero_grad()
+    for i, vector in enumerate(train_dataloader):
         with autocast(device_type=device.type, dtype=torch.bfloat16):
             vector = vector.to(device)
             loss, _, _ = step(
                 vector, transform, criterion, entropy
             )  # Perform a training step
-            # loss already deals with padding
+            # keep the loss scaled, so that the gradients are averaged correctly
+            loss = loss / accumulation_steps
             total_loss += loss.item()
         scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
-        scheduler.step()
+        if (i+1) % accumulation_steps == 0:
+            scaler.step(optimizer)
+            optimizer.zero_grad()
+            scaler.update()
+            scheduler.step()
     avg_loss = total_loss / len(train_dataloader)
 
     val_loss = 0.0

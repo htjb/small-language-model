@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import yaml
 from slm.byte_pair_encoding import bpe  # Import the bpe class
-from slm.networks import StackedTransformers  # Import the Embedding class
+from slm.transformer import StackedTransformers  # Import the Embedding class
 
 np.random.seed(42)
 torch.manual_seed(42)
@@ -20,7 +20,8 @@ def step(
     loss = criterion(output[0, :-1], target)
     return loss, output, target
 
-model_name = 'simple-wiki'
+
+model_name = "simple-wiki"
 
 hyperparameters = yaml.safe_load(
     open(model_name + "_hyperparameters.yaml", "r")
@@ -59,8 +60,10 @@ while (
     and len(vector) < hyperparameters["context_window_size"]
 ):
     output = transform(vector.unsqueeze(0))
-    output['output'][0, -1, 0] = -float("Inf")  # zero out PAD class
-    output['output'][0, -1, vocab_model.word_to_index["UNK"]] = -float("Inf")  # zero out UNK class
+    output["output"][0, -1, 0] = -float("Inf")  # zero out PAD class
+    output["output"][0, -1, vocab_model.word_to_index["UNK"]] = -float(
+        "Inf"
+    )  # zero out UNK class
 
     probs = (
         torch.nn.functional.softmax(output["output"][0, -1, :], dim=0)

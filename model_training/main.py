@@ -14,7 +14,7 @@ from sklearn.model_selection import (  # Import train_test_split for splitting d
     train_test_split,
 )
 from slm.byte_pair_encoding import bpe  # Import the bpe class
-from slm.networks import StackedTransformers
+from slm.transformer import StackedTransformers
 from torch.amp import GradScaler, autocast
 from torch.nn.utils.rnn import pad_sequence
 from torch.optim.lr_scheduler import LambdaLR
@@ -40,7 +40,6 @@ def clean_non_latin(text):
     )
     return allowed
 
-import torch
 
 def split_at_context_window(text, context_window_size, space_token_id):
     """
@@ -59,7 +58,9 @@ def split_at_context_window(text, context_window_size, space_token_id):
 
             # try to split at last space in the chunk if possible
             if end < n:
-                space_positions = (chunk == space_token_id).nonzero(as_tuple=True)[0]
+                space_positions = (chunk == space_token_id).nonzero(
+                    as_tuple=True
+                )[0]
                 if len(space_positions) > 0:
                     split_idx = space_positions[-1].item() + 1
                     chunk = chunk[:split_idx]
@@ -69,6 +70,7 @@ def split_at_context_window(text, context_window_size, space_token_id):
             start = end
 
     return result  # list of 1D tensors
+
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
@@ -139,9 +141,7 @@ hyperparameters = {
     "entropy": entropy,
 }
 
-files = glob.glob(
-    "data/" + model_name + "/*.txt"
-)[:50000]
+files = glob.glob("data/" + model_name + "/*.txt")[:50000]
 
 text = []
 for f in files:
@@ -212,9 +212,16 @@ train = [vocab_model.codify(t) for t in train if t.strip()]
 val = [vocab_model.codify(t) for t in val if t.strip()]
 test = [vocab_model.codify(t) for t in test if t.strip()]
 
-train = split_at_context_window(train, context_window_size, vocab_model.word_to_index.get(" "))
-val = split_at_context_window(val, context_window_size, vocab_model.word_to_index.get(" "))
-test = split_at_context_window(test, context_window_size, vocab_model.word_to_index.get(" "))
+train = split_at_context_window(
+    train, context_window_size, vocab_model.word_to_index.get(" ")
+)
+val = split_at_context_window(
+    val, context_window_size, vocab_model.word_to_index.get(" ")
+)
+test = split_at_context_window(
+    test, context_window_size, vocab_model.word_to_index.get(" ")
+)
+
 
 # Collate function: pad within a batch
 def collate_batch(batch):
@@ -289,7 +296,7 @@ for epoch in pbar:  # Number of epochs
             loss = loss / accumulation_steps
             total_loss += loss.item()
         scaler.scale(loss).backward()
-        if (i+1) % accumulation_steps == 0:
+        if (i + 1) % accumulation_steps == 0:
             scaler.step(optimizer)
             optimizer.zero_grad()
             scaler.update()

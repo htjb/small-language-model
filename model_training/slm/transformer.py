@@ -153,7 +153,9 @@ class Transformer(nn.Module):
             if self.entropy:
                 kl_list = []
                 for w in attention_weights:
-                    kl_list = w * (torch.log(w + 1e-8) - math.log(1.0 / w.size(-1)))
+                    kl_list = w * (
+                        torch.log(w + 1e-8) - math.log(1.0 / w.size(-1))
+                    )
                 kl = torch.stack(kl_list)
                 entropy_loss += kl.mean()  # >= 0 and well-scaled
 

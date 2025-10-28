@@ -14,6 +14,7 @@ class LSTM(nn.Module):
     """
 
     def __init__(self, vocab_size, embedding_dim):
+        super(LSTM, self).__init__()
         self.vocab_size = vocab_size
 
         self.forget_gate = nn.Linear(embedding_dim * 2, embedding_dim)
@@ -65,7 +66,10 @@ class Embedding(nn.Module):
             lstm during training.
     """
 
-    def __init__(self, embedding_dim, vocab_size, context_window_size):
+    def __init__(
+        self, embedding_dim: int, vocab_size: int, context_window_size: int
+    ):
+        super(Embedding, self).__init__()
         self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=0)
 
         self.pos_enc = sinusoidal_positional_encoding(
@@ -98,6 +102,7 @@ class MLP(nn.Module):
     """
 
     def __init__(self, embedding_dim, mlp_layers, mlp_dim, vocab_size):
+        super(MLP, self).__init__()
         self.layers = nn.ModuleList()
         self.layers.append(nn.Linear(embedding_dim, mlp_dim))
         for _ in range(mlp_layers):

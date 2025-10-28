@@ -7,7 +7,7 @@ import pickle
 import numpy as np
 import torch
 import yaml
-from slm.networks import Transformer  # Import the Embedding class
+from slm.transformer import Transformer  # Import the Embedding class
 
 # import onnx
 

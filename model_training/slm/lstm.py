@@ -17,10 +17,13 @@ class LSTM(nn.Module):
         super(LSTM, self).__init__()
         self.vocab_size = vocab_size
 
-        self.forget_gate = nn.Linear(embedding_dim * 2, embedding_dim)
+        """self.forget_gate = nn.Linear(embedding_dim * 2, embedding_dim)
         self.input_gate = nn.Linear(embedding_dim * 2, embedding_dim)
         self.tanh_layer = nn.Linear(embedding_dim * 2, embedding_dim)
-        self.output_filter = nn.Linear(embedding_dim * 2, embedding_dim)
+        self.output_filter = nn.Linear(embedding_dim * 2, embedding_dim)"""
+        self.combined_layer = nn.Linear(
+            in_features=embedding_dim * 2, out_features=embedding_dim * 4
+        )
 
         self.sigmoid = nn.Sigmoid()
         self.tanh = nn.Tanh()
@@ -44,12 +47,18 @@ class LSTM(nn.Module):
         """
 
         input = torch.cat([x, h], dim=1)
-        f = self.sigmoid(self.forget_gate(input))
-        i = self.sigmoid(self.input_gate(input))
-        ctilda = self.tanh(self.tanh_layer(input))
+
+        combined_output = self.combined_layer(input)
+        f, i, ctilda, output_filter = torch.chunk(
+            combined_output, chunks=4, dim=1
+        )
+
+        f = self.sigmoid(f)
+        i = self.sigmoid(i)
+        ctilda = self.tanh(ctilda)
         cnew = f * c + i * ctilda
 
-        output_filter = self.sigmoid(self.output_filter(input))
+        output_filter = self.sigmoid(output_filter)
         hnew = output_filter * self.tanh(cnew)
 
         return hnew, cnew
@@ -86,7 +95,6 @@ class Embedding(nn.Module):
         outputs:
             embedding: embedded token with positional encoding
         """
-        print(x.shape)
         embed = self.embedding(x) + self.pos_enc[: x.size(1)].to(x.device)
         return embed
 

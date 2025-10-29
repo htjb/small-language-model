@@ -41,35 +41,48 @@ def step(
     mlp: MLP,
     criterion: torch.nn.CrossEntropyLoss,
 ):
-    # batch shape: (batch_size, seq_len)
-    # input_seq = batch[:, :-1]  # All sequences, except last token
-    # target_seq = batch[:, 1:]  # Shifted targets
-
     input_seq = batch[:, :-1]  # All sequences, except last token
-    # target_seq = batch[:, 1:]  # Shifted targets
+    target_seq = batch[:, 1:]  # Shifted targets
 
-    # cinit = torch.zeros(embedding_size).to(device)
-    # hinit = torch.zeros(embedding_size).to(device)
+    c = torch.zeros(batch_size, embedding_size).to(device)
+    h = torch.zeros(batch_size, embedding_size).to(device)
 
-    print("Batch shape:", batch.shape)
-
-    print(embedder.embedding)
-    print("vocab_size:", embedder.embedding.num_embeddings)
-    print(input_seq.min(), input_seq.max())
+    seq_len = input_seq.size(1)
     embedded_input = embedder(
         input_seq
-    )  # (batch_size, seq_len-1, embedding_size)
-    print(embedded_input)
-    print("Embedded input shape:", embedded_input.shape)
+    )  # (batch_size, seq_len, embedding_size)
+    output = torch.zeros(
+        batch_size, seq_len, len(vocab_model.word_to_index) + 1
+    ).to(device)
 
-    """out = transform(input_seq)
-    output = out["output"]  # Get the output from the model
+    for i in range(seq_len):
+        if embedded_input.shape[0] != batch_size:
+            pad_size = batch_size - embedded_input.shape[0]
+            # Pad x with zeros (or your preferred value)
+            x = torch.cat(
+                [
+                    embedded_input[:, i, :],
+                    torch.zeros(
+                        pad_size,
+                        embedded_input.shape[-1],
+                        device=embedded_input.device,
+                    ),
+                ],
+                dim=0,
+            )
+            h, c = lstm(x, h, c)
+        else:
+            h, c = lstm(embedded_input[:, i, :], h, c)
+        output[:, i, :] = mlp(h)
 
-    loss = (
-        criterion(output.reshape(-1, output.size(-1)), target_seq.reshape(-1))
-        + entropy_loss
-    )"""
-    return None  # loss, output, target_seq
+    output = output.transpose(0, 1)  # (batch_size, seq_len, vocab_size)
+    # print(output.shape, target_seq.shape)
+
+    loss = criterion(
+        output.reshape(-1, output.size(-1)), target_seq.reshape(-1)
+    )
+
+    return loss, output, target_seq
 
 
 if torch.cuda.is_available():
@@ -81,11 +94,11 @@ else:
 
 print(f"Using device: {device}")
 
-batch_size = 4  # Define the batch size
-embedding_size = 16  # Define the embedding size
+batch_size = 128  # Define the batch size
+embedding_size = 8  # Define the embedding size
 mlp_layers = 1  # Define the number of MLP layers
 mlp_dim = 2 * embedding_size  # Define the MLP dimension
-context_window_size = 256  # Define the context window size
+context_window_size = 16  # Define the context window size
 model_name = "simple-wiki-lstm"
 load_vocab = True
 
@@ -282,14 +295,13 @@ for epoch in pbar:  # Number of epochs
     for i, vector in enumerate(train_dataloader):
         with autocast(device_type=device.type, dtype=torch.bfloat16):
             vector = vector.to(device)
-            loss = step(
+            loss, _, _ = step(
                 vector,
                 lstm,
                 embedder,
                 mlp,
                 criterion,
             )  # Perform a training step
-            exit()
             # keep the loss scaled, so that the gradients are averaged correctly
             loss = loss / accumulation_steps
             total_loss += loss.item()

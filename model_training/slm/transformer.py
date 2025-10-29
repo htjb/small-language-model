@@ -22,7 +22,7 @@ class Transformer(nn.Module):
         super(Transformer, self).__init__()
         if embedding:
             self.embedding = nn.Embedding(
-                vocab_size, embedding_dim, padding_idx=0
+                vocab_size + 1, embedding_dim, padding_idx=0
             )
         else:
             self.embedding = False

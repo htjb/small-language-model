@@ -45,6 +45,23 @@ def step(
     # input_seq = batch[:, :-1]  # All sequences, except last token
     # target_seq = batch[:, 1:]  # Shifted targets
 
+    input_seq = batch[:, :-1]  # All sequences, except last token
+    # target_seq = batch[:, 1:]  # Shifted targets
+
+    # cinit = torch.zeros(embedding_size).to(device)
+    # hinit = torch.zeros(embedding_size).to(device)
+
+    print("Batch shape:", batch.shape)
+
+    print(embedder.embedding)
+    print("vocab_size:", embedder.embedding.num_embeddings)
+    print(input_seq.min(), input_seq.max())
+    embedded_input = embedder(
+        input_seq
+    )  # (batch_size, seq_len-1, embedding_size)
+    print(embedded_input)
+    print("Embedded input shape:", embedded_input.shape)
+
     """out = transform(input_seq)
     output = out["output"]  # Get the output from the model
 
@@ -57,15 +74,15 @@ def step(
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
-elif torch.backends.mps.is_available():  # for mac with m1 chip
-    device = torch.device("mps")
+elif torch.backends.mps.is_available():
+    device = torch.device("cpu")
 else:
     device = torch.device("cpu")
 
 print(f"Using device: {device}")
 
-batch_size = 128  # Define the batch size
-embedding_size = 256  # Define the embedding size
+batch_size = 4  # Define the batch size
+embedding_size = 16  # Define the embedding size
 mlp_layers = 1  # Define the number of MLP layers
 mlp_dim = 2 * embedding_size  # Define the MLP dimension
 context_window_size = 256  # Define the context window size
@@ -89,7 +106,7 @@ hyperparameters = {
 }
 
 files = glob.glob("data/" + "-".join(model_name.split("-")[:-1]) + "/*.txt")[
-    :50000
+    :500
 ]
 
 text = []
@@ -137,10 +154,12 @@ with open("../website/assets/" + model_name + "_index_to_word.yaml", "w") as f:
     yaml.dump(vocab_model.index_to_word, f)
 
 embedder = Embedding(
-    embedding_size, len(vocab_model.word_to_index), context_window_size
+    embedding_size, len(vocab_model.word_to_index) + 1, context_window_size
 )
-lstm = LSTM(len(vocab_model.word_to_index), embedding_size)
-mlp = MLP(embedding_size, mlp_layers, mlp_dim, len(vocab_model.word_to_index))
+lstm = LSTM(len(vocab_model.word_to_index) + 1, embedding_size)
+mlp = MLP(
+    embedding_size, mlp_layers, mlp_dim, len(vocab_model.word_to_index) + 1
+)
 
 number_of_parameters = (
     sum([p.numel() for p in embedder.parameters()])
@@ -175,7 +194,6 @@ logging.info(
     + f"{sum([p.numel() for p in mlp.parameters()])}"
 )
 
-exit()
 # Assume vocab_model.codify(t) returns a 1D LongTensor for each text
 train = [vocab_model.codify(t) for t in train if t.strip()]
 val = [vocab_model.codify(t) for t in val if t.strip()]
@@ -264,13 +282,14 @@ for epoch in pbar:  # Number of epochs
     for i, vector in enumerate(train_dataloader):
         with autocast(device_type=device.type, dtype=torch.bfloat16):
             vector = vector.to(device)
-            loss, _, _ = step(
+            loss = step(
                 vector,
                 lstm,
                 embedder,
                 mlp,
                 criterion,
             )  # Perform a training step
+            exit()
             # keep the loss scaled, so that the gradients are averaged correctly
             loss = loss / accumulation_steps
             total_loss += loss.item()

@@ -70,9 +70,7 @@ class Embedding(nn.Module):
         self, embedding_dim: int, vocab_size: int, context_window_size: int
     ):
         super(Embedding, self).__init__()
-        self.embedding = nn.Embedding(
-            vocab_size + 1, embedding_dim, padding_idx=0
-        )
+        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=0)
 
         self.pos_enc = sinusoidal_positional_encoding(
             context_window_size, embedding_dim

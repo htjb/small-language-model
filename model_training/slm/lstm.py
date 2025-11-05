@@ -5,6 +5,27 @@ from slm.utils import sinusoidal_positional_encoding
 
 class LSTM(nn.Module):
     """
+    Wrapper around PyTorch's LSTM module.
+
+    parameters:
+        vocab_size: the size of the vocabulary as an integer
+        embedding_dim: the size of the embedding space
+    """
+
+    def __init__(self, embedding_dim):
+        super(LSTM, self).__init__()
+        self.lstm = nn.LSTM(embedding_dim, embedding_dim, batch_first=True)
+
+    def forward(self, x, hinit, cinit):
+        output, (hfinal, cfinal) = self.lstm(
+            x, (hinit.unsqueeze(0), cinit.unsqueeze(0))
+        )
+
+        return output, hfinal, cfinal
+
+
+class myLSTM(nn.Module):
+    """
     Simple implementation of an LSTM based on the description in
     https://colah.github.io/posts/2015-08-Understanding-LSTMs/.
 
@@ -13,14 +34,9 @@ class LSTM(nn.Module):
         embedding_dim: the size of the embedding space
     """
 
-    def __init__(self, vocab_size, embedding_dim):
+    def __init__(self, embedding_dim):
         super(LSTM, self).__init__()
-        self.vocab_size = vocab_size
 
-        """self.forget_gate = nn.Linear(embedding_dim * 2, embedding_dim)
-        self.input_gate = nn.Linear(embedding_dim * 2, embedding_dim)
-        self.tanh_layer = nn.Linear(embedding_dim * 2, embedding_dim)
-        self.output_filter = nn.Linear(embedding_dim * 2, embedding_dim)"""
         self.combined_layer = nn.Linear(
             in_features=embedding_dim * 2, out_features=embedding_dim * 4
         )

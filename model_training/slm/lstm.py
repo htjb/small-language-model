@@ -86,8 +86,6 @@ class Embedding(nn.Module):
     parameters:
         embedding_dim: the size of the embedding space
         vocab_size: the size of the vocbulary
-        context_window_size: longest number of tokens that will be passed to the
-            lstm during training.
     """
 
     def __init__(

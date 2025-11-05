@@ -5,6 +5,7 @@ import os
 import pickle
 import re
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.optim as optim
@@ -16,7 +17,11 @@ from slm.byte_pair_encoding import bpe  # Import the bpe class
 from slm.lstm import LSTM, MLP, Embedding
 from slm.utils import clean_non_latin, split_at_context_window
 from torch.amp import GradScaler, autocast
-from torch.nn.utils.rnn import pad_sequence
+from torch.nn.utils.rnn import (
+    pack_padded_sequence,
+    pad_packed_sequence,
+    pad_sequence,
+)
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import (  # Import Dataset and DataLoader for handling data
     DataLoader,
@@ -44,39 +49,29 @@ def step(
     input_seq = batch[:, :-1]  # All sequences, except last token
     target_seq = batch[:, 1:]  # Shifted targets
 
-    c = torch.zeros(batch_size, embedding_size).to(device)
-    h = torch.zeros(batch_size, embedding_size).to(device)
+    input_lengths = (input_seq != 0).sum(dim=1)
 
-    seq_len = input_seq.size(1)
+    c = torch.zeros(input_seq.shape[0], embedding_size).to(device)
+    h = torch.zeros(input_seq.shape[0], embedding_size).to(device)
+
     embedded_input = embedder(
         input_seq
     )  # (batch_size, seq_len, embedding_size)
-    output = torch.zeros(
-        batch_size, seq_len, len(vocab_model.word_to_index) + 1
-    ).to(device)
 
-    for i in range(seq_len):
-        if embedded_input.shape[0] != batch_size:
-            pad_size = batch_size - embedded_input.shape[0]
-            # Pad x with zeros (or your preferred value)
-            x = torch.cat(
-                [
-                    embedded_input[:, i, :],
-                    torch.zeros(
-                        pad_size,
-                        embedded_input.shape[-1],
-                        device=embedded_input.device,
-                    ),
-                ],
-                dim=0,
-            )
-            h, c = lstm(x, h, c)
-        else:
-            h, c = lstm(embedded_input[:, i, :], h, c)
-        output[:, i, :] = mlp(h)
+    packed_embedded = pack_padded_sequence(
+        embedded_input,
+        input_lengths.cpu(),
+        batch_first=True,
+        enforce_sorted=False,
+    )
 
-    output = output.transpose(0, 1)  # (batch_size, seq_len, vocab_size)
-    # print(output.shape, target_seq.shape)
+    packed_out, _, _ = lstm(packed_embedded, h, c)
+
+    unpacked_out, _ = pad_packed_sequence(packed_out, batch_first=True)
+
+    output = mlp(unpacked_out)  # (batch_size, seq_len, vocab_size)
+
+    # print(output.reshape(-1, output.size(-1)).shape, target_seq.reshape(-1).shape)
 
     loss = criterion(
         output.reshape(-1, output.size(-1)), target_seq.reshape(-1)
@@ -97,8 +92,8 @@ print(f"Using device: {device}")
 batch_size = 128  # Define the batch size
 embedding_size = 8  # Define the embedding size
 mlp_layers = 1  # Define the number of MLP layers
-mlp_dim = 2 * embedding_size  # Define the MLP dimension
-context_window_size = 16  # Define the context window size
+mlp_dim = embedding_size  # Define the MLP dimension
+max_seq_length = 16  # Define the context window size
 model_name = "simple-wiki-lstm"
 load_vocab = True
 
@@ -114,12 +109,12 @@ hyperparameters = {
     "embedding_size": embedding_size,
     "mlp_layers": mlp_layers,
     "mlp_dim": mlp_dim,
-    "context_window_size": context_window_size,
+    "max_seq_length": max_seq_length,
     "batch_size": batch_size,
 }
 
 files = glob.glob("data/" + "-".join(model_name.split("-")[:-1]) + "/*.txt")[
-    :500
+    :50
 ]
 
 text = []
@@ -166,10 +161,8 @@ with open("../website/assets/" + model_name + "_word_to_index.yaml", "w") as f:
 with open("../website/assets/" + model_name + "_index_to_word.yaml", "w") as f:
     yaml.dump(vocab_model.index_to_word, f)
 
-embedder = Embedding(
-    embedding_size, len(vocab_model.word_to_index) + 1, context_window_size
-)
-lstm = LSTM(len(vocab_model.word_to_index) + 1, embedding_size)
+embedder = Embedding(embedding_size, len(vocab_model.word_to_index) + 1)
+lstm = LSTM(embedding_size)
 mlp = MLP(
     embedding_size, mlp_layers, mlp_dim, len(vocab_model.word_to_index) + 1
 )
@@ -213,13 +206,13 @@ val = [vocab_model.codify(t) for t in val if t.strip()]
 test = [vocab_model.codify(t) for t in test if t.strip()]
 
 train = split_at_context_window(
-    train, context_window_size, vocab_model.word_to_index.get(" ")
+    train, max_seq_length, vocab_model.word_to_index.get(" ")
 )
 val = split_at_context_window(
-    val, context_window_size, vocab_model.word_to_index.get(" ")
+    val, max_seq_length, vocab_model.word_to_index.get(" ")
 )
 test = split_at_context_window(
-    test, context_window_size, vocab_model.word_to_index.get(" ")
+    test, max_seq_length, vocab_model.word_to_index.get(" ")
 )
 
 
@@ -364,7 +357,9 @@ torch.save(mlp.state_dict(), model_name + "_mlp.pth")
 with open(model_name + "_hyperparameters.yaml", "w") as f:
     yaml.dump(hyperparameters, f)  # Save hyperparameters to a YAML file
 
-"""transform.eval()
+embedder.eval()
+lstm.eval()
+mlp.eval()
 total_loss = 0.0
 total_tokens = 0
 correct, total_correctable = 0, 0
@@ -373,7 +368,13 @@ with torch.no_grad():
     truth, predictions = [], []
     for vector in test_dataloader:
         vector = vector.to(device)
-        loss, output, target = step(vector, transform, criterion, entropy)
+        loss, output, target = step(
+            vector,
+            lstm,
+            embedder,
+            mlp,
+            criterion,
+        )
         output[:, :, 0] = float("-inf")  # prevent pad prediction
         pred = torch.argmax(output, dim=2)
 
@@ -399,14 +400,17 @@ plt.title("True vs Predicted Word Indices")
 plt.savefig("true_vs_predicted_indices.png")
 plt.show()
 
-out = transform(
-    vocab_model.codify("Alice was beginning").unsqueeze(0).to(device)
-)
-output = out["output"]  # Get the output from the model
+
+# no packing needed because there is no padding :0
+text = vocab_model.codify("Alice was beginning").unsqueeze(0).to(device)
+embedded_vector = embedder(text)
+c = torch.zeros(1, embedding_size).to(device)
+h = torch.zeros(1, embedding_size).to(device)
+_, hfinal, _ = lstm(embedded_vector, h, c)
+output = mlp(hfinal)
 print("Output shape:", output.shape)  # Print the shape of the output
 # the last ouput is the prediction for the next word
 output = output.detach().cpu().numpy()
 output = np.argmax(output[0, -1, 1:])
-predicted_word = vocab_model.index_to_word[int(output + 1)]
+predicted_word = vocab_model.index_to_word[int(output)]
 print("Predicted words:", predicted_word)  # Print the predicted words
-"""

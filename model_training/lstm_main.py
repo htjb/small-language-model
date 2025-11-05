@@ -90,10 +90,10 @@ else:
 print(f"Using device: {device}")
 
 batch_size = 128  # Define the batch size
-embedding_size = 8  # Define the embedding size
+embedding_size = 32  # Define the embedding size
 mlp_layers = 1  # Define the number of MLP layers
 mlp_dim = embedding_size  # Define the MLP dimension
-max_seq_length = 16  # Define the context window size
+max_seq_length = 32  # Define the context window size
 model_name = "simple-wiki-lstm"
 load_vocab = True
 
@@ -114,7 +114,7 @@ hyperparameters = {
 }
 
 files = glob.glob("data/" + "-".join(model_name.split("-")[:-1]) + "/*.txt")[
-    :50
+    :500
 ]
 
 text = []

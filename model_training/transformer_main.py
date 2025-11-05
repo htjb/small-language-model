@@ -337,5 +337,5 @@ print("Output shape:", output.shape)  # Print the shape of the output
 # the last ouput is the prediction for the next word
 output = output.detach().cpu().numpy()
 output = np.argmax(output[0, -1, 1:])
-predicted_word = vocab_model.index_to_word[int(output + 1)]
+predicted_word = vocab_model.index_to_word[int(output)]
 print("Predicted words:", predicted_word)  # Print the predicted words

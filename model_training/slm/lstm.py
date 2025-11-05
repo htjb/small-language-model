@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from slm.utils import sinusoidal_positional_encoding
 
 
 class LSTM(nn.Module):
@@ -92,14 +91,12 @@ class Embedding(nn.Module):
     """
 
     def __init__(
-        self, embedding_dim: int, vocab_size: int, context_window_size: int
+        self,
+        embedding_dim: int,
+        vocab_size: int,
     ):
         super(Embedding, self).__init__()
         self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=0)
-
-        self.pos_enc = sinusoidal_positional_encoding(
-            context_window_size, embedding_dim
-        )
 
     def forward(self, x):
         """
@@ -111,7 +108,7 @@ class Embedding(nn.Module):
         outputs:
             embedding: embedded token with positional encoding
         """
-        embed = self.embedding(x) + self.pos_enc[: x.size(1)].to(x.device)
+        embed = self.embedding(x)
         return embed
 
 

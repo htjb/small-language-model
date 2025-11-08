@@ -91,10 +91,10 @@ else:
 print(f"Using device: {device}")
 
 batch_size = 128  # Define the batch size
-embedding_size = 32  # Define the embedding size
+embedding_size = 64  # Define the embedding size
 mlp_layers = 1  # Define the number of MLP layers
-mlp_dim = embedding_size  # Define the MLP dimension
-max_seq_length = 32  # Define the context window size
+mlp_dim = 3 * embedding_size  # Define the MLP dimension
+max_seq_length = 128  # Define the context window size
 model_name = "simple-wiki-lstm"
 load_vocab = False
 
@@ -115,7 +115,7 @@ hyperparameters = {
 }
 
 files = glob.glob("data/" + "-".join(model_name.split("-")[:-1]) + "/*.txt")[
-    :500
+    :5000
 ]
 
 text = []
@@ -161,11 +161,11 @@ with open("../website/assets/" + model_name + "_word_to_index.yaml", "w") as f:
 with open("../website/assets/" + model_name + "_index_to_word.yaml", "w") as f:
     yaml.dump(vocab_model.index_to_word, f)
 
-embedder = Embedding(embedding_size, len(vocab_model.word_to_index) + 1)
-lstm = LSTM(embedding_size)
+embedder = Embedding(embedding_size, len(vocab_model.word_to_index) + 1).to(device)
+lstm = LSTM(embedding_size).to(device)
 mlp = MLP(
     embedding_size, mlp_layers, mlp_dim, len(vocab_model.word_to_index) + 1
-)
+).to(device)
 
 number_of_parameters = (
     sum([p.numel() for p in embedder.parameters()])

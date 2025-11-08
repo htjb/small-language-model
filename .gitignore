@@ -1,2 +1,5 @@
 */__pycache__
 _DS_Store
+model_training/data
+model_training/.venv
+.ruff_cache

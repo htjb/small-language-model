@@ -6,8 +6,8 @@ import yaml
 from slm.byte_pair_encoding import bpe  # Import the bpe class
 from slm.transformer import StackedTransformers  # Import the Embedding class
 
-np.random.seed(42)
-torch.manual_seed(42)
+# np.random.seed(42)
+# torch.manual_seed(42)
 
 
 def step(
@@ -49,7 +49,7 @@ transform.load_state_dict(
     state_dict
 )  # Load the state dictionary into the model
 
-test_phrase = "how many"  # Define a test phrase
+test_phrase = "what is "  # Define a test phrase
 # only need to make pass through the mlp for the last word... will need to think
 # about how to do this in the future
 
@@ -74,7 +74,7 @@ while (
     probs[int(vector[-1])] = 0  # zero out the previous word
 
     # optional: top-k sampling
-    k = 250
+    k = 25
     top_k_indices = probs.argsort()[-k:]
     top_k_probs = probs[top_k_indices]
     top_k_probs /= top_k_probs.sum()  # normalize

@@ -96,7 +96,7 @@ mlp_layers = 1  # Define the number of MLP layers
 mlp_dim = embedding_size  # Define the MLP dimension
 max_seq_length = 32  # Define the context window size
 model_name = "simple-wiki-lstm"
-load_vocab = True
+load_vocab = False
 
 if os.path.exists(model_name + ".log"):
     os.remove(model_name + ".log")

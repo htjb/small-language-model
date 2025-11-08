@@ -65,12 +65,12 @@ else:
 print(f"Using device: {device}")
 
 batch_size = 128  # Define the batch size
-embedding_size = 256  # Define the embedding size
+embedding_size = 128  # Define the embedding size
 mlp_layers = 1  # Define the number of MLP layers
-mlp_dim = 4 * embedding_size  # Define the MLP dimension
-context_window_size = 256  # Define the context window size
+mlp_dim = 1 * embedding_size  # Define the MLP dimension
+context_window_size = 128  # Define the context window size
 nheads = 2
-ntransformers = 2
+ntransformers = 1
 entropy = False
 model_name = "simple-wiki"
 load_vocab = True
@@ -94,7 +94,7 @@ hyperparameters = {
     "entropy": entropy,
 }
 
-files = glob.glob("data/" + model_name + "/*.txt")[:50000]
+files = glob.glob("data/" + model_name + "/*.txt")[:1000]
 
 text = []
 for f in files:

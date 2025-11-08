@@ -257,7 +257,7 @@ test_dataloader = DataLoader(
     test, batch_size=batch_size, shuffle=False, collate_fn=collate_batch
 )
 
-weights = 1.0 / (vocab_model.freqs + 1e-6)  # Inverse frequency weighting
+weights = 1.0 / (freqs + 1e-6)  # Inverse frequency weighting
 weights = weights / weights.sum() * (len(vocab_model.word_to_index) + 1)
 
 # prepend a zero for the PAD class

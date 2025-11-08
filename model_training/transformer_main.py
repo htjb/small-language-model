@@ -3,6 +3,7 @@ import logging
 import os
 import pickle
 import re
+from collections import Counter
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -121,8 +122,7 @@ if load_vocab and os.path.exists(model_name + "_vocab.pkl"):
     )
 else:
     vocab_model = bpe(train[: int(len(train) / 100 * 5)], num_merges=1000)
-print(f"Number of tokens: {sum(vocab_model.freqs)}")
-logging.info(f"Number of tokens: {sum(vocab_model.freqs)}")
+
 with open(model_name + "_vocab.pkl", "wb") as f:
     pickle.dump(vocab_model, f)
 logging.info(f"Vocabulary size: {len(vocab_model.word_to_index)}")
@@ -163,6 +163,15 @@ logging.info(f"Number of Model Parameters: {number_of_parameters}")
 train = [vocab_model.codify(t) for t in train if t.strip()]
 val = [vocab_model.codify(t) for t in val if t.strip()]
 test = [vocab_model.codify(t) for t in test if t.strip()]
+
+counter = Counter(torch.cat(train).tolist())
+freqs = torch.tensor(
+    [counter.get(i, 0) for i in vocab_model.index_to_word.keys()],
+    dtype=torch.float,
+)
+
+print(f"Number of tokens: {sum(freqs)}")
+logging.info(f"Number of tokens: {sum(freqs)}")
 
 train = split_at_context_window(
     train, context_window_size, vocab_model.word_to_index.get(" ")
@@ -207,7 +216,7 @@ test_dataloader = DataLoader(
     test, batch_size=batch_size, shuffle=False, collate_fn=collate_batch
 )
 
-weights = 1.0 / (vocab_model.freqs + 1e-6)  # Inverse frequency weighting
+weights = 1.0 / (freqs + 1e-6)  # Inverse frequency weighting
 weights = weights / weights.sum() * (len(vocab_model.word_to_index) + 1)
 
 # prepend a zero for the PAD class

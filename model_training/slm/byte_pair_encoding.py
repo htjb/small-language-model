@@ -35,17 +35,10 @@ class bpe:
                     j += 1
             mergers += 1
 
-        processed_words = []
-        for w in words:
-            processed_words.append(w)
-            if w in [".", "!", "?"]:
-                processed_words.append("EOS")
-
         self.vocab = np.unique(np.concatenate(words)).tolist()
         self.vocab.append("UNK")
         self.vocab.append(" ")
-        if "EOS" not in self.vocab:
-            self.vocab.append("EOS")
+        self.vocab.append("EOS")
 
         self.merger_rules = merger_rules
 

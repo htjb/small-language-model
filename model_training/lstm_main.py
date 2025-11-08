@@ -4,6 +4,7 @@ import logging
 import os
 import pickle
 import re
+from collections import Counter
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -143,8 +144,7 @@ if load_vocab and os.path.exists(model_name + "_vocab.pkl"):
     )
 else:
     vocab_model = bpe(train[: int(len(train) / 100 * 5)], num_merges=1000)
-print(f"Number of tokens: {sum(vocab_model.freqs)}")
-logging.info(f"Number of tokens: {sum(vocab_model.freqs)}")
+
 with open(model_name + "_vocab.pkl", "wb") as f:
     pickle.dump(vocab_model, f)
 logging.info(f"Vocabulary size: {len(vocab_model.word_to_index)}")
@@ -204,6 +204,15 @@ logging.info(
 train = [vocab_model.codify(t) for t in train if t.strip()]
 val = [vocab_model.codify(t) for t in val if t.strip()]
 test = [vocab_model.codify(t) for t in test if t.strip()]
+
+counter = Counter(torch.cat(train).tolist())
+freqs = torch.tensor(
+    [counter.get(i, 0) for i in vocab_model.index_to_word.keys()],
+    dtype=torch.float,
+)
+
+print(f"Number of tokens: {sum(freqs)}")
+logging.info(f"Number of tokens: {sum(freqs)}")
 
 train = split_at_context_window(
     train, max_seq_length, vocab_model.word_to_index.get(" ")

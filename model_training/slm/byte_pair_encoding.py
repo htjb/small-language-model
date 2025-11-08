@@ -52,26 +52,6 @@ class bpe:
         self.word_to_index = {word: i + 1 for i, word in enumerate(self.vocab)}
         self.index_to_word = {i + 1: word for i, word in enumerate(self.vocab)}
 
-        codified = []
-        for i, word in enumerate(processed_words):
-            for subword in word:
-                if subword in [".", "!", "?"]:
-                    if len(codified) > 0 and codified[-1] == " ":
-                        codified.pop()  # only remove a space
-                    codified.append(subword)
-                    codified.append("EOS")
-                elif subword in self.vocab:
-                    codified.append(subword)
-                else:
-                    codified.append("UNK")
-            if i < len(processed_words) - 1:
-                codified.append(" ")
-
-        counter = Counter(codified)
-        self.freqs = torch.tensor(
-            [counter.get(word, 0) for word in self.vocab], dtype=torch.float
-        )
-
     def codify(self, line):
         line = line.strip()
         words = re.findall(r"\w+|[^\w\s]", line)

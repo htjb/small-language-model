@@ -90,14 +90,14 @@ else:
 
 print(f"Using device: {device}")
 
-batch_size = 128  # Define the batch size
-embedding_size = 256  # Define the embedding size
-lstm_layers = 2  # Define the number of LSTM layers
-mlp_layers = 2  # Define the number of MLP layers
+batch_size = 512  # Define the batch size
+embedding_size = 128  # Define the embedding size
+lstm_layers = 1  # Define the number of LSTM layers
+mlp_layers = 1  # Define the number of MLP layers
 mlp_dim = 512  # Define the MLP dimension
 max_seq_length = 128  # Define the context window size
 model_name = "simple-wiki-lstm"
-load_vocab = True
+load_vocab = False
 
 if os.path.exists(model_name + ".log"):
     os.remove(model_name + ".log")
@@ -117,7 +117,7 @@ hyperparameters = {
 }
 
 files = glob.glob("data/" + "-".join(model_name.split("-")[:-1]) + "/*.txt")[
-    :200
+    :2000
 ]
 
 text = []
@@ -130,11 +130,11 @@ text = [
 ]  # Remove empty lines and split on punctuation
 text = np.concatenate(text).tolist()
 text = [clean_non_latin(t) for t in text]
+text = [t.lower() for t in text]
 
 # Train/test/val split shuffles by default
-train, test = train_test_split(text, test_size=0.3, random_state=42)
+train, test = train_test_split(text, test_size=0.4, random_state=42)
 test, val = train_test_split(test, test_size=0.5, random_state=42)
-print(f"Train size: {len(train)}")
 
 # vocab_model = bag_of_words(files)
 if load_vocab and os.path.exists(model_name + "_vocab.pkl"):
@@ -145,7 +145,7 @@ if load_vocab and os.path.exists(model_name + "_vocab.pkl"):
         f"Loaded vocabulary of size: {len(vocab_model.word_to_index)}"
     )
 else:
-    vocab_model = bpe(train[: int(len(train) / 100 * 5)], num_merges=1000)
+    vocab_model = bpe(train[: int(len(train) / 100 * 5)], num_merges=1500)
 
 with open(model_name + "_vocab.pkl", "wb") as f:
     pickle.dump(vocab_model, f)
@@ -272,8 +272,8 @@ optimizer = optim.AdamW(
     list(mlp.parameters())
     + list(embedder.parameters())
     + list(lstm.parameters()),
-    lr=1e-3,
-    weight_decay=0.01,
+    lr=1e-4,
+    weight_decay=0.001,
 )
 scaler = GradScaler(device.type)
 
@@ -281,7 +281,7 @@ best_loss = float("inf")  # Initialize best loss
 best_model = None  # Placeholder for the best model
 patience_counter = 0  # Initialize patience counter
 patience = 5
-epochs = 2
+epochs = 10
 
 total_steps = epochs * len(train_dataloader) / batch_size
 warmup_steps = 2 * len(train_dataloader) / batch_size
@@ -330,6 +330,8 @@ for epoch in pbar:  # Number of epochs
             )  # Perform a training step
             val_loss += loss.item()
     val_loss /= len(val_dataloader)
+    # scale it properly for comparison with train loss
+    val_loss /= accumulation_steps
 
     if val_loss < best_loss:
         best_loss = val_loss

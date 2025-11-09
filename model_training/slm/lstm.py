@@ -146,5 +146,5 @@ class MLP(nn.Module):
         for layer in self.layers[:-1]:
             x = torch.relu(layer(x))
             x = nn.Dropout(0.3)(x)
-        x = self.layers[-1](x)
+        x = torch.relu(self.layers[-1](x))
         return x

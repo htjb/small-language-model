@@ -106,6 +106,7 @@ text = [
 ]  # Remove empty lines and split on punctuation
 text = np.concatenate(text).tolist()
 text = [clean_non_latin(t) for t in text]
+text = [t.lower() for t in text]
 
 # Train/test/val split shuffles by default
 train, test = train_test_split(text, test_size=0.3, random_state=42)
@@ -273,6 +274,8 @@ for epoch in pbar:  # Number of epochs
             )  # Perform a validation step
             val_loss += loss.item()
     val_loss /= len(val_dataloader)
+    # scale it properly for comparison with train loss
+    val_loss /= accumulation_steps
 
     if val_loss < best_loss:
         best_loss = val_loss

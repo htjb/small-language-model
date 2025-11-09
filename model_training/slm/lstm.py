@@ -7,17 +7,21 @@ class LSTM(nn.Module):
     Wrapper around PyTorch's LSTM module.
 
     parameters:
-        vocab_size: the size of the vocabulary as an integer
         embedding_dim: the size of the embedding space
+        num_layers: number of LSTM layers
     """
 
-    def __init__(self, embedding_dim):
+    def __init__(self, embedding_dim, num_layers=2):
         super(LSTM, self).__init__()
-        self.lstm = nn.LSTM(embedding_dim, embedding_dim, batch_first=True)
+        self.lstm = nn.LSTM(embedding_dim, embedding_dim, 
+                            batch_first=True,
+                            num_layers=num_layers,
+                            dropout=0.3)
+        self.num_layers = num_layers
 
     def forward(self, x, hinit, cinit):
         output, (hfinal, cfinal) = self.lstm(
-            x, (hinit.unsqueeze(0), cinit.unsqueeze(0))
+            x, (hinit, cinit)
         )
 
         return output, hfinal, cfinal
@@ -29,7 +33,6 @@ class myLSTM(nn.Module):
     https://colah.github.io/posts/2015-08-Understanding-LSTMs/.
 
     parameters:
-        vocab_size: the size of the vocabulary as an integer
         embedding_dim: the size of the embedding space
     """
 
@@ -142,5 +145,6 @@ class MLP(nn.Module):
 
         for layer in self.layers[:-1]:
             x = torch.relu(layer(x))
+            x = nn.Dropout(0.3)(x)
         x = self.layers[-1](x)
         return x

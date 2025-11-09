@@ -15,7 +15,7 @@ vocab_model = pickle.load(open(model_name + "_vocab.pkl", "rb"))
 embedder = Embedding(
     hyperparameters["embedding_size"], len(vocab_model.word_to_index) + 1
 )
-lstm = LSTM(hyperparameters["embedding_size"])
+lstm = LSTM(hyperparameters["embedding_size"], num_layers=hyperparameters["lstm_layers"])
 mlp = MLP(
     hyperparameters["embedding_size"],
     hyperparameters["mlp_layers"],
@@ -47,8 +47,8 @@ test_phrase = "what is "  # Define a test phrase
 
 vector = vocab_model.codify(test_phrase).unsqueeze(0)  # [:-1]
 
-h = torch.zeros(1, hyperparameters["embedding_size"])
-c = torch.zeros(1, hyperparameters["embedding_size"])
+h = torch.zeros(hyperparameters['lstm_layers'], 1, hyperparameters["embedding_size"])
+c = torch.zeros(hyperparameters['lstm_layers'], 1, hyperparameters["embedding_size"])
 
 embedded = embedder(vector)  # Single token
 
@@ -59,7 +59,7 @@ input_token = vector[:, -1].unsqueeze(0)
 output = []
 for _ in range(100):
     embedded = embedder(input_token)  # Single token
-    h, c = h.reshape(1, -1), c.reshape(1, -1)
+    h, c = h.reshape(hyperparameters['lstm_layers'], 1, -1), c.reshape(hyperparameters['lstm_layers'], 1, -1)
     out, h, c = lstm(embedded, h, c)
     next_token = mlp(out).argmax(dim=-1)  # could do top-k here
     input_token = next_token

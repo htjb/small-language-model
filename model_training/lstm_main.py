@@ -52,8 +52,8 @@ def step(
 
     input_lengths = (input_seq != 0).sum(dim=1)
 
-    c = torch.zeros(input_seq.shape[0], embedding_size).to(device)
-    h = torch.zeros(input_seq.shape[0], embedding_size).to(device)
+    c = torch.zeros(lstm.num_layers, input_seq.shape[0], embedding_size).to(device)
+    h = torch.zeros(lstm.num_layers, input_seq.shape[0], embedding_size).to(device)
 
     embedded_input = embedder(
         input_seq
@@ -91,12 +91,13 @@ else:
 print(f"Using device: {device}")
 
 batch_size = 128  # Define the batch size
-embedding_size = 64  # Define the embedding size
-mlp_layers = 1  # Define the number of MLP layers
-mlp_dim = 3 * embedding_size  # Define the MLP dimension
+embedding_size = 256  # Define the embedding size
+lstm_layers = 2  # Define the number of LSTM layers
+mlp_layers = 2  # Define the number of MLP layers
+mlp_dim = 512  # Define the MLP dimension
 max_seq_length = 128  # Define the context window size
 model_name = "simple-wiki-lstm"
-load_vocab = False
+load_vocab = True
 
 if os.path.exists(model_name + ".log"):
     os.remove(model_name + ".log")
@@ -112,10 +113,11 @@ hyperparameters = {
     "mlp_dim": mlp_dim,
     "max_seq_length": max_seq_length,
     "batch_size": batch_size,
+    "lstm_layers": lstm_layers,
 }
 
 files = glob.glob("data/" + "-".join(model_name.split("-")[:-1]) + "/*.txt")[
-    :5000
+    :200
 ]
 
 text = []
@@ -162,7 +164,7 @@ with open("../website/assets/" + model_name + "_index_to_word.yaml", "w") as f:
     yaml.dump(vocab_model.index_to_word, f)
 
 embedder = Embedding(embedding_size, len(vocab_model.word_to_index) + 1).to(device)
-lstm = LSTM(embedding_size).to(device)
+lstm = LSTM(embedding_size, num_layers=lstm_layers).to(device)
 mlp = MLP(
     embedding_size, mlp_layers, mlp_dim, len(vocab_model.word_to_index) + 1
 ).to(device)
@@ -279,7 +281,7 @@ best_loss = float("inf")  # Initialize best loss
 best_model = None  # Placeholder for the best model
 patience_counter = 0  # Initialize patience counter
 patience = 5
-epochs = 25
+epochs = 2
 
 total_steps = epochs * len(train_dataloader) / batch_size
 warmup_steps = 2 * len(train_dataloader) / batch_size
@@ -413,10 +415,10 @@ plt.show()
 # no packing needed because there is no padding :0
 text = vocab_model.codify("Alice was beginning").unsqueeze(0).to(device)
 embedded_vector = embedder(text)
-c = torch.zeros(1, embedding_size).to(device)
-h = torch.zeros(1, embedding_size).to(device)
-_, hfinal, _ = lstm(embedded_vector, h, c)
-output = mlp(hfinal)
+c = torch.zeros(lstm_layers, 1, embedding_size).to(device)
+h = torch.zeros(lstm_layers, 1, embedding_size).to(device)
+out, _, _ = lstm(embedded_vector, h, c)
+output = mlp(out)
 print("Output shape:", output.shape)  # Print the shape of the output
 # the last ouput is the prediction for the next word
 output = output.detach().cpu().numpy()

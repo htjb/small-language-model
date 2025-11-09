@@ -68,4 +68,5 @@ for _ in range(100):
         break
 
 decoded_output = [vocab_model.index_to_word[int(o)] for o in output]
-print(test_phrase + " " + " ".join(decoded_output))
+print(decoded_output)
+print(test_phrase + " " + "".join(decoded_output))

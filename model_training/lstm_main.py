@@ -92,8 +92,8 @@ print(f"Using device: {device}")
 
 batch_size = 512  # Define the batch size
 embedding_size = 256  # Define the embedding size
-lstm_layers = 2  # Define the number of LSTM layers
-mlp_layers = 1  # Define the number of MLP layers
+lstm_layers = 3  # Define the number of LSTM layers
+mlp_layers = 2  # Define the number of MLP layers
 mlp_dim = 512  # Define the MLP dimension
 max_seq_length = 128  # Define the context window size
 model_name = "simple-wiki-lstm"
@@ -117,7 +117,7 @@ hyperparameters = {
 }
 
 files = glob.glob("data/" + "-".join(model_name.split("-")[:-1]) + "/*.txt")[
-    :20000
+    :30000
 ]
 
 text = []
@@ -280,8 +280,8 @@ scaler = GradScaler(device.type)
 best_loss = float("inf")  # Initialize best loss
 best_model = None  # Placeholder for the best model
 patience_counter = 0  # Initialize patience counter
-patience = 5
-epochs = 100
+patience = 25
+epochs = 250
 
 total_steps = epochs * len(train_dataloader) / batch_size
 warmup_steps = 2 * len(train_dataloader) / batch_size

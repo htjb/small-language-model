@@ -125,7 +125,7 @@ class Transformer(nn.Module):
             # Create a upper triangular matrix for causal masking
             seq_len = normed_embedding[i].size(1)
             causal_mask = torch.tril(
-                torch.ones(seq_len, seq_len, device=x.device), diagonal=1
+                torch.ones(seq_len, seq_len, device=x.device), diagonal=0
             ).bool()
 
             # Combine causal + pad mask

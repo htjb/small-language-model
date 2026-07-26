@@ -40,8 +40,6 @@ def clean_non_latin(text):
     )
     return allowed
 
-import torch
-
 def split_at_context_window(text, context_window_size, space_token_id):
     """
     text: list of 1D tensors of token IDs
@@ -117,7 +115,7 @@ context_window_size = 256  # Define the context window size
 nheads = 2
 ntransformers = 2
 entropy = False
-model_name = "simple-wiki"
+model_name = "classic-books"
 load_vocab = True
 
 if os.path.exists(model_name + ".log"):
